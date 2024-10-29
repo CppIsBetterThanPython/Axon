@@ -100,17 +100,6 @@ class Network {
 
     vector<vector<vector<double>>> differentiate(vector<double> expectedAnswers);
 
-private:
-    //input the gradients of the next layers nodes, the index of the node you are getting the gradient of, and the index of the current layer
-    double getNodeGradient(vector<double> nextLayerNodeGradients, int nodePos, int currentLayerPos);
-
-    //input the gradients of the next layers nodes, the index of the node you are getting the gradient of, and the index of the current layer
-    double getGradient(double nextLayerNodeGradient, int layerPos, int nodePos, int weightPos);
-
-    double getGradient(double nextLayerNodeGradient, int layerPos, int nodePos);
-
-public:
-
     tuple< vector<vector<vector<double>>>, double, bool> Test(vector<vector<double>> testExample);
 
     tuple< vector<vector<vector<double>>>, double, double> TestSet(vector<vector<vector<double>>> testSet);
@@ -119,6 +108,15 @@ public:
     void alterByGradient(vector<vector<vector<double>>> averageGradient, double learningRate);
 
     void improveNetworkBackPropogation(vector<vector<vector<double>>> testSet, double learningRate);
+
+private:
+    //input the gradients of the next layers nodes, the index of the node you are getting the gradient of, and the index of the current layer
+    double getNodeGradient(vector<double> nextLayerNodeGradients, int nodePos, int currentLayerPos);
+
+    //input the gradients of the next layers nodes, the index of the node you are getting the gradient of, and the index of the current layer
+    double getGradient(double nextLayerNodeGradient, int layerPos, int nodePos, int weightPos);
+
+    double getGradient(double nextLayerNodeGradient, int layerPos, int nodePos);
 };
 
 #endif
