@@ -118,7 +118,7 @@ public:
     //removes gradient from the weights and biases
     void alterByGradient(vector<vector<vector<double>>> averageGradient, double learningRate);
 
-    void improveNetworkBackPropogation(vector<vector<vector<double>>> testSet, double learningRate);
+    double improveNetworkBackPropogation(vector<vector<vector<double>>> testSet, double learningRate);
 };
 
 #endif

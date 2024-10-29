@@ -50,29 +50,16 @@ double learningRate(int x, double constant) {
     return (1/constant)*exp(-x)+(constant-1)/constant;
 }
 
+
+
 int main() {
     srand(static_cast<int>(time(NULL)));
     vector<int> Structure{6, 5, 5, 2};
     Network TwoD_PlaneAI(Structure);
-    /*for(int i = 0; i > -1; i++) {
-        cout << i << ":" << endl;
-        TwoD_PlaneAI.improveNetworkBackPropogation(generateTestSet(1000), 1.0001);
-    }*/
 
-    cout << "Phase One:" << endl;
-    for(int i = 0; i < 10000; i++) {
+    for(int i = 0; i > -1; i++) {
         cout << i << ":" << endl;
         TwoD_PlaneAI.improveNetworkBackPropogation(generateTestSet(1000), 1.0001);
-    }
-    cout << "Phase Two:" << endl;
-    for(int i = 10000; i < 30000; i++) {
-        cout << i << ":" << endl;
-        TwoD_PlaneAI.improveNetworkBackPropogation(generateTestSet(10000), 0.1);
-    }
-    cout << "Phase Three:" << endl;
-    for(int i = 30000; i > -1; i++) {
-        cout << i << ":" << endl;
-        TwoD_PlaneAI.improveNetworkBackPropogation(generateTestSet(100000), 0.01);
     }
 
     return 0;

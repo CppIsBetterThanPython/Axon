@@ -338,7 +338,7 @@ void Network::alterByGradient(vector<vector<vector<double>>> averageGradient, do
     }
 }
 
-void Network::improveNetworkBackPropogation(vector<vector<vector<double>>> testSet, double learningRate) {
+double Network::improveNetworkBackPropogation(vector<vector<vector<double>>> testSet, double learningRate) {
 
     auto averageTestResult = TestSet(testSet);
 
@@ -350,6 +350,8 @@ void Network::improveNetworkBackPropogation(vector<vector<vector<double>>> testS
 
     cout << "percentage correct: " << averageCorrect << endl;
     cout << "cost is: " << averageCost << endl;
+
+    return averageCost;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
