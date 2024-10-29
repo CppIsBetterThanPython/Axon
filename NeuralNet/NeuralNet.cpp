@@ -35,14 +35,22 @@ Network::Network(vector<int> Structure) {
     networkSize = Structure.size();
     structure = Structure;
     //defines amount of layers
-    layers = new Layer[Structure.size()];
+    layers = vector<Layer>(networkSize);
 
-    for(int i = 0; i < Structure.size(); i++) {
-        layers[i] = Layer(Structure[i], (i > 0) ? Structure[i-1] : 0);
+    for(int i = 0; i < networkSize; i++) {
+        layers[i] = Layer(structure[i], (i > 0) ? structure[i-1] : 0);
     }
 
     inputLayer = &layers[0];
     outputLayer = &layers[networkSize - 1];
+}
+
+void Network::resetWeights() {
+    layers.clear();
+
+    for (int i = 0; i < networkSize; i++) {
+        layers[i] = Layer(structure[i], (i > 0) ? structure[i - 1] : 0);
+    }
 }
 
 //input vector to set input node layer

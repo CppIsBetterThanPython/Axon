@@ -47,42 +47,68 @@ vector<vector<vector<double>>> generateTestSet(int size) {
     return testSet;
 }
 
-double learningRate(int x, double constant) {
-    return (1/constant)*exp(-x)+(constant-1)/constant;
+double constantLearningApproach(Network& network) {
+    return network.improveNetworkBackPropogation(generateTestSet(1000), 1.0001);
 }
 
-double constantLearningApproach(Network network) {
-    return network.improveNetworkBackPropogation(generateTestSet(1000), 1.0001);
+vector<double> testNetworkLearningSpeed(int testLength, Network& network) {
+    int amountCompleted = testLength;
+    const int upperBound = 10000;
+
+    double averageCount = 0.0;
+    double averageElapsed = 0.0;
+
+    for (int i = 0; i < testLength; i++) {
+        double currentCost = 1;
+
+        int instanceCounter = 0;
+
+        // Start time measurement
+        auto start = std::chrono::high_resolution_clock::now();
+
+        while (currentCost > 0.1 && instanceCounter <= upperBound) {
+            cout << instanceCounter << ":" << endl;
+            currentCost = constantLearningApproach(network);
+
+            instanceCounter++;
+        }
+        if (instanceCounter <= upperBound) {
+            amountCompleted--;
+        }
+
+        // End time measurement
+        auto end = std::chrono::high_resolution_clock::now();
+
+        // Calculate elapsed time
+        std::chrono::duration<double> elapsed = end - start;
+
+        averageElapsed += elapsed.count();
+        averageCount += instanceCounter;
+
+        network.resetWeights();
+    }
+
+    averageCount /= amountCompleted;
+    averageElapsed /= amountCompleted;
+
+    return { averageCount, averageElapsed };
 }
 
 int main() {
     srand(static_cast<int>(time(NULL)));
     vector<int> Structure{6, 5, 5, 2};
     Network TwoD_PlaneAI(Structure);
-    
-    double currentCost = 1;
 
-    int counter = 0;
+    vector<double> result = testNetworkLearningSpeed(10, TwoD_PlaneAI);
 
-    // Start time measurement
-    auto start = std::chrono::high_resolution_clock::now();
+    double averageElapsed = result[1];
+    double averageCount = result[0];
 
-    while (currentCost > 0.05) {
-        cout << counter << ":" << endl;
-        currentCost = constantLearningApproach(TwoD_PlaneAI);
+    std::cout << "Average count: " << averageCount << endl;
 
-        counter++;
-    }
+    std::cout << "Average elapsed time: " << averageElapsed << " seconds\n";
 
-    // End time measurement
-    auto end = std::chrono::high_resolution_clock::now();
-
-    // Calculate elapsed time
-    std::chrono::duration<double> elapsed = end - start;
-
-    std::cout << "Elapsed time: " << elapsed.count() << " seconds\n";
-
-    cin.get();
+    std::cin.get();
 
     return 0;
 }

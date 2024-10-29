@@ -22,22 +22,21 @@ public:
     double data;
     double preSigmoidData;
 
-    double* Weights;
+    vector<double> Weights;
     double Bias;
 
-    Node() : PrevLayerNodes(0), data(0.0), Weights(nullptr), Bias(0.0), preSigmoidData(0.0) {}
+    Node() : PrevLayerNodes(0), data(0.0), Weights({}), Bias(0.0), preSigmoidData(0.0) {}
 
-    Node::Node(int prevLayerNodes) : preSigmoidData(0.0), data(0.0) {
+    Node(int prevLayerNodes) : preSigmoidData(0.0), data(0.0) {
         PrevLayerNodes = prevLayerNodes;
-        Weights = new double[PrevLayerNodes];
+        Weights = vector<double>(prevLayerNodes);
         for (int i = 0; i < PrevLayerNodes; i++) {
             Weights[i] = RandomReal();
         }
         Bias = RandomReal();
     }
 
-
-    double& Node::operator[](int index) {
+    double& operator[](int index) {
         if (index < 0 || index >= PrevLayerNodes) {
             throw std::out_of_range("Index out of bounds");
         }
@@ -48,19 +47,19 @@ public:
 class Layer {
 public:
     int size;
-    Node* nodes;
+    vector<Node> nodes;
 
-    Layer() : size(0), nodes(nullptr) {}
+    Layer() : size(0), nodes({}) {}
 
-    Layer::Layer(int NodesAmount, int previousLayerNodes) {
+    Layer(int NodesAmount, int previousLayerNodes) {
         size = NodesAmount;
-        nodes = new Node[NodesAmount];
+        nodes = vector<Node>(NodesAmount);
         for (int i = 0; i < NodesAmount; i++) {
             nodes[i] = Node(previousLayerNodes);
         }
     }
 
-    Node& Layer::operator[](int index) {
+    Node& operator[](int index) {
         if (index < 0 || index >= size) {
             throw std::out_of_range("Index out of bounds");
         }
@@ -72,7 +71,7 @@ public:
 class Network {
     public:
     //layers[layer][node][weight]
-    Layer* layers;
+    vector<Layer> layers;
     Layer* inputLayer;
     Layer* outputLayer;
     vector<int> structure;
@@ -80,6 +79,8 @@ class Network {
 
     //constructor
     Network(vector<int> Structure);
+
+    void resetWeights();
 
     //input vector to set input node layer
     void input(vector<double> input);
