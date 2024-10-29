@@ -5,11 +5,12 @@
 #include <cstdlib> //for random numbes
 #include <ctime> //so is this
 #include <iostream>
-#include <vector> // (._.) < Really? ... )
 #include <deque>
 #include <utility>
-#include <tuple>//to return multiple different type values
 #include <algorithm>  // For std::sort
+
+#include <chrono>
+
 
 #include "NeuralNet.h"
 
@@ -50,17 +51,38 @@ double learningRate(int x, double constant) {
     return (1/constant)*exp(-x)+(constant-1)/constant;
 }
 
-
+double constantLearningApproach(Network network) {
+    return network.improveNetworkBackPropogation(generateTestSet(1000), 1.0001);
+}
 
 int main() {
     srand(static_cast<int>(time(NULL)));
     vector<int> Structure{6, 5, 5, 2};
     Network TwoD_PlaneAI(Structure);
+    
+    double currentCost = 1;
 
-    for(int i = 0; i > -1; i++) {
-        cout << i << ":" << endl;
-        TwoD_PlaneAI.improveNetworkBackPropogation(generateTestSet(1000), 1.0001);
+    int counter = 0;
+
+    // Start time measurement
+    auto start = std::chrono::high_resolution_clock::now();
+
+    while (currentCost > 0.05) {
+        cout << counter << ":" << endl;
+        currentCost = constantLearningApproach(TwoD_PlaneAI);
+
+        counter++;
     }
+
+    // End time measurement
+    auto end = std::chrono::high_resolution_clock::now();
+
+    // Calculate elapsed time
+    std::chrono::duration<double> elapsed = end - start;
+
+    std::cout << "Elapsed time: " << elapsed.count() << " seconds\n";
+
+    cin.get();
 
     return 0;
 }
