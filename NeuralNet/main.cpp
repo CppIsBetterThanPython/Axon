@@ -28,7 +28,7 @@ vector<vector<vector<double>>> generateTestSet(int size) {
         vector<double> point = {static_cast<double>(rand() % 100)+RandomReal(), static_cast<double>(rand() % 100)+RandomReal()};
 
         vector<double> input = {x[0], y[0], x[1], y[1], point[0], point[1]};
-
+        
         vector<double> answer(2);
 
         if (isInRange(point[0], x[0], x[1]) && isInRange(point[1], y[0], y[1])) {
@@ -53,18 +53,7 @@ double learningRate(int x, double constant) {
 int main() {
     srand(static_cast<int>(time(NULL)));
     vector<int> Structure{6, 5, 5, 2};
-    vector<double> Input{1.1, 2.3, 1.7};
     Network TwoD_PlaneAI(Structure);
-    vector<double> expectedAnswersTest{0, 1};
-
-    TwoD_PlaneAI.input(Input);
-    TwoD_PlaneAI.calculate();
-    cout << TwoD_PlaneAI.getAnswer() << endl;
-
-    //cout << "cost is: " << TwoD_PlaneAI.getCost(expectedAnswersTest) << endl;
-
-    TwoD_PlaneAI.differentiate(expectedAnswersTest);
-
     /*for(int i = 0; i > -1; i++) {
         cout << i << ":" << endl;
         TwoD_PlaneAI.improveNetworkBackPropogation(generateTestSet(1000), 1.0001);
