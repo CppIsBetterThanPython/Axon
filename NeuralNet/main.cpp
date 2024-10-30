@@ -53,7 +53,7 @@ double constantLearningApproach(Network& network) {
 
 vector<double> testNetworkLearningSpeed(int testLength, Network& network) {
     int amountCompleted = testLength;
-    const int upperBound = 10000;
+    const int upperBound = 1000;
 
     double averageCount = 0.0;
     double averageElapsed = 0.0;
@@ -67,29 +67,33 @@ vector<double> testNetworkLearningSpeed(int testLength, Network& network) {
         auto start = std::chrono::high_resolution_clock::now();
 
         while (currentCost > 0.1 && instanceCounter <= upperBound) {
-            cout << instanceCounter << ":" << endl;
+            std::cout << instanceCounter << ":" << endl;
             currentCost = constantLearningApproach(network);
 
             instanceCounter++;
-        }
-        if (instanceCounter <= upperBound) {
-            amountCompleted--;
         }
 
         // End time measurement
         auto end = std::chrono::high_resolution_clock::now();
 
-        // Calculate elapsed time
-        std::chrono::duration<double> elapsed = end - start;
+        if (instanceCounter > upperBound) {
+            amountCompleted--;
+        }
+        else {
+            // Calculate elapsed time
+            std::chrono::duration<double> elapsed = end - start;
 
-        averageElapsed += elapsed.count();
-        averageCount += instanceCounter;
+            averageElapsed += elapsed.count();
+            averageCount += instanceCounter;
+        }
 
         network.resetWeights();
     }
 
     averageCount /= amountCompleted;
     averageElapsed /= amountCompleted;
+
+    std::cout << "Amount completed: " << amountCompleted << endl;
 
     return { averageCount, averageElapsed };
 }
@@ -99,7 +103,7 @@ int main() {
     vector<int> Structure{6, 5, 5, 2};
     Network TwoD_PlaneAI(Structure);
 
-    vector<double> result = testNetworkLearningSpeed(10, TwoD_PlaneAI);
+    vector<double> result = testNetworkLearningSpeed(5, TwoD_PlaneAI);
 
     double averageElapsed = result[1];
     double averageCount = result[0];
