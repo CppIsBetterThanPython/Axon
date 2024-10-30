@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <tuple> // Include this for std::tuple
+#include <utility>//for pair
 
 using std::vector;
 using std::tuple;
@@ -119,7 +120,8 @@ public:
     //removes gradient from the weights and biases
     void alterByGradient(vector<vector<vector<double>>> averageGradient, double learningRate);
 
-    double improveNetworkBackPropogation(vector<vector<vector<double>>> testSet, double learningRate);
+    //returns cost then accuracy
+    vector<double> improveNetworkBackPropogation(vector<vector<vector<double>>> testSet, double learningRate);
 };
 
 #endif

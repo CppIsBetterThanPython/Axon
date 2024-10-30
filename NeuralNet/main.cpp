@@ -47,9 +47,19 @@ vector<vector<vector<double>>> generateTestSet(int size) {
     return testSet;
 }
 
-double constantLearningApproach(Network& network) {
+//returns cost then accuracy
+vector<double> constantLearningApproach(Network& network) {
     return network.improveNetworkBackPropogation(generateTestSet(1000), 1.0001);
 }
+
+// smoothing factor closer to 1 values newer values more, 0 values older values more
+double EWMA(double pastAverage, double currentCost, double smoothingFactor, int time) {
+    double newAverage = smoothingFactor * pastAverage + (1 - smoothingFactor) * currentCost;
+
+    newAverage /= 1 - pow(smoothingFactor, time);
+
+    return newAverage;
+};
 
 vector<double> testNetworkLearningSpeed(int testLength, Network& network) {
     int amountCompleted = testLength;
@@ -60,15 +70,21 @@ vector<double> testNetworkLearningSpeed(int testLength, Network& network) {
 
     for (int i = 0; i < testLength; i++) {
         double currentCost = 1;
+        double weightedCost = constantLearningApproach(network)[0];
 
         int instanceCounter = 0;
 
         // Start time measurement
         auto start = std::chrono::high_resolution_clock::now();
 
-        while (currentCost > 0.1 && instanceCounter <= upperBound) {
+        while (weightedCost > 0.1 && instanceCounter <= upperBound) {
             std::cout << instanceCounter << ":" << endl;
-            currentCost = constantLearningApproach(network);
+            vector<double> result = constantLearningApproach(network);
+            currentCost = result[0];
+            weightedCost = EWMA(weightedCost, currentCost, 0.8, instanceCounter + 1);
+
+            cout << "Accuracy: " << result[0] << endl;
+            cout << "cost: " << weightedCost << endl;
 
             instanceCounter++;
         }
