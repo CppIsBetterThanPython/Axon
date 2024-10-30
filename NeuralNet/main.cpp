@@ -61,9 +61,8 @@ double EWMA(double pastAverage, double currentCost, double smoothingFactor, int 
     return newAverage;
 };
 
-vector<double> testNetworkLearningSpeed(int testLength, Network& network) {
+vector<double> testNetworkLearningSpeed(int testLength, int upperBound, double targetCost, Network& network) {
     int amountCompleted = testLength;
-    const int upperBound = 1000;
 
     double averageCount = 0.0;
     double averageElapsed = 0.0;
@@ -77,13 +76,13 @@ vector<double> testNetworkLearningSpeed(int testLength, Network& network) {
         // Start time measurement
         auto start = std::chrono::high_resolution_clock::now();
 
-        while (weightedCost > 0.1 && instanceCounter <= upperBound) {
+        while (weightedCost > targetCost && instanceCounter <= upperBound) {
             std::cout << instanceCounter << ":" << endl;
             vector<double> result = constantLearningApproach(network);
             currentCost = result[0];
             weightedCost = EWMA(weightedCost, currentCost, 0.8, instanceCounter + 1);
 
-            cout << "Accuracy: " << result[0] << endl;
+            cout << "Accuracy: " << result[1] << endl;
             cout << "cost: " << weightedCost << endl;
 
             instanceCounter++;
@@ -119,7 +118,7 @@ int main() {
     vector<int> Structure{6, 5, 5, 2};
     Network TwoD_PlaneAI(Structure);
 
-    vector<double> result = testNetworkLearningSpeed(5, TwoD_PlaneAI);
+    vector<double> result = testNetworkLearningSpeed(10, 20000, 0.1, TwoD_PlaneAI);
 
     double averageElapsed = result[1];
     double averageCount = result[0];
