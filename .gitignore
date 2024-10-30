@@ -23,3 +23,6 @@ x64/
 *.temp
 *.bak
 *.swp
+
+# Ignore my file to test iterations seperately
+Iterations/
