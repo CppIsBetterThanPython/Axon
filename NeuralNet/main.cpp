@@ -49,7 +49,7 @@ vector<vector<vector<double>>> generateTestSet(int size) {
 
 //returns cost then accuracy
 vector<double> constantLearningApproach(Network& network) {
-    return network.improveNetworkBackPropogation(generateTestSet(1000), 1.0001);
+    return network.improveNetworkBackPropogation(generateTestSet(1000), 1);
 }
 
 // smoothing factor closer to 1 values newer values more, 0 values older values more
@@ -60,6 +60,25 @@ double EWMA(double pastAverage, double currentCost, double smoothingFactor, int 
 
     return newAverage;
 };
+
+void train(Network& network) {
+    double currentCost = 1;
+    double weightedCost = constantLearningApproach(network)[0];
+
+    int instanceCounter = 0;
+
+    for (;;) {
+        vector<double> result = constantLearningApproach(network);
+        currentCost = result[0];
+        weightedCost = EWMA(weightedCost, currentCost, 0.8, instanceCounter + 1);
+
+        std::cout << instanceCounter << ":" << endl;
+        cout << "Accuracy: " << result[1] << endl;
+        cout << "cost: " << weightedCost << endl;
+
+        instanceCounter++;
+    }
+}
 
 vector<double> testNetworkLearningSpeed(int testLength, int upperBound, double targetCost, Network& network) {
     int amountCompleted = testLength;
@@ -117,6 +136,8 @@ int main() {
     srand(static_cast<int>(time(NULL)));
     vector<int> Structure{6, 5, 5, 2};
     Network TwoD_PlaneAI(Structure);
+
+    train(TwoD_PlaneAI);
 
     vector<double> result = testNetworkLearningSpeed(10, 20000, 0.1, TwoD_PlaneAI);
 

@@ -16,6 +16,8 @@ bool isInRange(double num, double lower, double upper);
 
 double RandomReal();
 
+double XavierInitialization(int in, int out);
+
 class Node {
 public:
     int PrevLayerNodes;
@@ -26,15 +28,14 @@ public:
     vector<double> Weights;
     double Bias;
 
-    Node() : PrevLayerNodes(0), data(0.0), Weights({}), Bias(0.0), preSigmoidData(0.0) {}
+    Node() : PrevLayerNodes(0), data(0.0), Weights({}), Bias(0.1), preSigmoidData(0.0) {}
 
-    Node(int prevLayerNodes) : preSigmoidData(0.0), data(0.0) {
+    Node(int prevLayerNodes, int currentLayerNodes) : preSigmoidData(0.0), data(0.0), Bias(0.1) {
         PrevLayerNodes = prevLayerNodes;
         Weights = vector<double>(prevLayerNodes);
         for (int i = 0; i < PrevLayerNodes; i++) {
-            Weights[i] = RandomReal();
+            Weights[i] = XavierInitialization(prevLayerNodes, currentLayerNodes);
         }
-        Bias = RandomReal();
     }
 
     double& operator[](int index) {
@@ -56,7 +57,7 @@ public:
         size = NodesAmount;
         nodes = vector<Node>(NodesAmount);
         for (int i = 0; i < NodesAmount; i++) {
-            nodes[i] = Node(previousLayerNodes);
+            nodes[i] = Node(previousLayerNodes, NodesAmount);
         }
     }
 

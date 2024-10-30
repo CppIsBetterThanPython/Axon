@@ -15,9 +15,7 @@ using namespace std;
 double Sigmoid(double x) { return 1 / (1 + exp(-x)); }
 
 //to backpropogate
-double SigmoidDerivative(double x) {
-    return Sigmoid(x)*(1-Sigmoid(x));
-}
+double SigmoidDerivative(double x) { return Sigmoid(x)*(1-Sigmoid(x)); }
 
 bool isInRange(double num, double lower, double upper) {
     bool x = (num >= lower && num <= upper);
@@ -26,6 +24,12 @@ bool isInRange(double num, double lower, double upper) {
 
 //to set preliminary guesses for weights and biases
 double RandomReal() { return (static_cast<double>(rand()) / RAND_MAX) * 2 - 1; }
+
+double XavierInitialization(int in, int out) {
+    double range = sqrt(6.0 / (in + out));
+    double x = RandomReal() * range;  // Scaled random value
+    return x;
+}
 
 //class Network
 ////////////////////////////////////////////////////////////////////////////////////////////////
