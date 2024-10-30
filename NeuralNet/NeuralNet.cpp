@@ -4,7 +4,7 @@
 #include <iostream>
 #include <vector> // (._.) < Really? ... )
 #include <deque>
-#include <utility>
+#include <utility>//for pair
 #include <tuple>//to return multiple different type values
 
 #include "NeuralNet.h"
@@ -346,7 +346,7 @@ void Network::alterByGradient(vector<vector<vector<double>>> averageGradient, do
     }
 }
 
-double Network::improveNetworkBackPropogation(vector<vector<vector<double>>> testSet, double learningRate) {
+vector<double> Network::improveNetworkBackPropogation(vector<vector<vector<double>>> testSet, double learningRate) {
 
     auto averageTestResult = TestSet(testSet);
 
@@ -356,10 +356,7 @@ double Network::improveNetworkBackPropogation(vector<vector<vector<double>>> tes
 
     alterByGradient(averageGradient, learningRate);
 
-    cout << "percentage correct: " << averageCorrect << endl;
-    cout << "cost is: " << averageCost << endl;
-
-    return averageCost;
+    return {averageCost, averageCorrect};
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
