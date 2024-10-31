@@ -26,3 +26,4 @@ x64/
 
 # Ignore my file to test iterations seperately
 Iterations/
+Test/
