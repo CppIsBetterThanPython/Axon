@@ -8,19 +8,9 @@
 #include <tuple>//to return multiple different type values
 
 #include "NeuralNet.h"
+#include "NN.h"
 
 using namespace std;
-
-//to turn values into 0-1 range
-double Sigmoid(double x) { return 1 / (1 + exp(-x)); }
-
-//to backpropogate
-double SigmoidDerivative(double x) { return Sigmoid(x)*(1-Sigmoid(x)); }
-
-bool isInRange(double num, double lower, double upper) {
-    bool x = (num >= lower && num <= upper);
-    return (num >= lower && num <= upper);
-}
 
 //to set preliminary guesses for weights and biases
 double RandomReal() { return (static_cast<double>(rand()) / RAND_MAX) * 2 - 1; }
@@ -35,7 +25,7 @@ double XavierInitialization(int in, int out) {
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
 //constructor
-Network::Network(vector<int> Structure) {
+Network::Network(vector<size_t> Structure) {
     networkSize = Structure.size();
     structure = Structure;
     //defines amount of layers
@@ -55,6 +45,18 @@ void Network::resetWeights() {
     for (int i = 0; i < networkSize; i++) {
         layers[i] = Layer(structure[i], (i > 0) ? structure[i - 1] : 0);
     }
+}
+
+void Network::saveNetwork(string filename) {
+    NNFile networkFile = NNFile(filename);
+
+    networkFile.write(*this);
+}
+
+void Network::loadNetwork(string filename) {
+    NNFile networkFile = NNFile(filename);
+
+    networkFile.read(*this);
 }
 
 //input vector to set input node layer
