@@ -1,6 +1,3 @@
-#ifndef SSIZE_T
-//#include "hdf5.h"  // Include HDF5 first
-#endif
 #include <cmath> //for basic math functions, for exponent used in sigmoid
 #include <cstdlib> //for random numbes
 #include <ctime> //so is this
@@ -8,7 +5,7 @@
 #include <deque>
 #include <utility>
 #include <algorithm>  // For std::sort
-
+#include <string>
 #include <chrono>
 
 
@@ -77,6 +74,14 @@ void train(Network& network) {
         cout << "cost: " << weightedCost << endl;
 
         instanceCounter++;
+
+        if (instanceCounter % 1000 == 0) {
+            string filename = std::to_string(instanceCounter / 10000);
+            filename += "-";
+            filename += std::to_string(currentCost);
+
+            network.saveNetwork(filename);
+        }
     }
 }
 
@@ -134,8 +139,10 @@ vector<double> testNetworkLearningSpeed(int testLength, int upperBound, double t
 
 int main() {
     srand(static_cast<int>(time(NULL)));
-    vector<int> Structure{6, 5, 5, 2};
+    vector<size_t> Structure{6, 5, 5, 2};
     Network TwoD_PlaneAI(Structure);
+
+    TwoD_PlaneAI.loadNetwork("0");
 
     train(TwoD_PlaneAI);
 

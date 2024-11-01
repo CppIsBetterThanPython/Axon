@@ -1,18 +1,21 @@
-#ifndef NEURALNET_H
-#define NEURALNET_H
+#pragma once
 
 #include <vector>
 #include <tuple> // Include this for std::tuple
 #include <utility>//for pair
+#include <iostream>
 
-using std::vector;
-using std::tuple;
+using std::vector, std::tuple, std::string;
 
-double Sigmoid(double x);
+//to turn values into 0-1 range
+inline double Sigmoid(double x) { return 1 / (1 + exp(-x)); }
 
-double SigmoidDerivative(double x);
+//to backpropogate
+inline double SigmoidDerivative(double x) { return Sigmoid(x) * (1 - Sigmoid(x)); }
 
-bool isInRange(double num, double lower, double upper);
+inline bool isInRange(double num, double lower, double upper) {
+    return (num >= lower && num <= upper);
+}
 
 double RandomReal();
 
@@ -20,7 +23,7 @@ double XavierInitialization(int in, int out);
 
 class Node {
 public:
-    int PrevLayerNodes;
+    size_t PrevLayerNodes;
 
     double data;
     double preSigmoidData;
@@ -38,6 +41,8 @@ public:
         }
     }
 
+    inline operator vector<double>() { return Weights; }
+
     double& operator[](int index) {
         if (index < 0 || index >= PrevLayerNodes) {
             throw std::out_of_range("Index out of bounds");
@@ -48,7 +53,7 @@ public:
 
 class Layer {
 public:
-    int size;
+    size_t size;
     vector<Node> nodes;
 
     Layer() : size(0), nodes({}) {}
@@ -60,6 +65,8 @@ public:
             nodes[i] = Node(previousLayerNodes, NodesAmount);
         }
     }
+
+    inline operator vector<Node>() { return nodes; }
 
     Node& operator[](int index) {
         if (index < 0 || index >= size) {
@@ -76,13 +83,19 @@ class Network {
     vector<Layer> layers;
     Layer* inputLayer;
     Layer* outputLayer;
-    vector<int> structure;
+    vector<size_t> structure;
     int networkSize;
 
     //constructor
-    Network(vector<int> Structure);
+    Network(vector<size_t> Structure);
+
+    inline operator vector<Layer>() { return layers; }
 
     void resetWeights();
+
+    void saveNetwork(string filename);
+
+    void loadNetwork(string filename);
 
     //input vector to set input node layer
     void input(vector<double> input);
@@ -124,5 +137,3 @@ public:
     //returns cost then accuracy
     vector<double> improveNetworkBackPropogation(vector<vector<vector<double>>> testSet, double learningRate);
 };
-
-#endif
