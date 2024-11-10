@@ -1,26 +1,22 @@
-#include "NN.h"
-
 #include <iostream>
 #include <fstream>
+#include <filesystem>
 #include <vector>
 
+#include "NN.h"
 #include "NeuralNet.h"
 
-bool fileExists(const std::string& filename) {
-	std::ifstream file(filename);
-	return file.good(); // Returns true if the file is good (exists and can be opened)
-}
+using namespace std::filesystem;
 
 NNFile::NNFile(std::string filename) {
-	using std::ofstream;
-
 	filename += ".nn";
 
-	this->filename = filename;
+	this->filePath = filename;
 
-	if (!fileExists(filename)) {
+	// Create file if does not exist;
+	if (!exists(filePath)) {
 		//  Create file
-		ofstream CreateFile(filename);
+		std::ofstream CreateFile(filename);
 
 		// Check if successful
 		if (CreateFile) {
@@ -35,9 +31,8 @@ NNFile::NNFile(std::string filename) {
 }
 
 bool NNFile::write(Network network) {
-	using std::ofstream;
 
-	ofstream WriteFile(filename, std::ios::binary);
+	std::ofstream WriteFile(filePath, std::ios::binary);
 
 	// Check if the file was opened successfully
 	if (!WriteFile) { // Alternatively, you can use if (!outFile.is_open())
@@ -76,9 +71,8 @@ bool NNFile::write(Network network) {
 }
 
 bool NNFile::read(Network& network) {
-	using std::ifstream;
 
-	ifstream ReadFile(filename, std::ios::binary);
+	std::ifstream ReadFile(filePath, std::ios::binary);
 
 	// Check if the file was opened successfully
 	if (!ReadFile) { // Alternatively, you can use if (!outFile.is_open())

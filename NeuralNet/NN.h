@@ -1,13 +1,13 @@
 #pragma once
 
-#include <iostream>
+#include <filesystem>
 
 #include "NeuralNet.h"
 
 class NNFile
 {
 public:
-	std::string filename;
+	std::filesystem::path filePath;
 
 	NNFile(std::string filename);
 
@@ -15,5 +15,5 @@ public:
 
 	bool read(Network& network);
 
-	operator std::string() const { return filename; }
+	operator std::string() const { return filePath.string(); }
 };

@@ -1,25 +1,30 @@
 #pragma once
 
 #include <vector>
-#include <tuple> // Include this for std::tuple
-#include <utility>//for pair
+#include <tuple> // For returning multiple, different type values
 #include <iostream>
 
-using std::vector, std::tuple, std::string;
+using std::vector, std::tuple;
 
 //to turn values into 0-1 range
 inline double Sigmoid(double x) { return 1 / (1 + exp(-x)); }
 
-//to backpropogate
+// Back propogation involves partial derivative, including that of the sigmoid function
 inline double SigmoidDerivative(double x) { return Sigmoid(x) * (1 - Sigmoid(x)); }
 
-inline bool isInRange(double num, double lower, double upper) {
+inline bool IsInRange(double num, double lower, double upper) {
     return (num >= lower && num <= upper);
 }
 
-double RandomReal();
+// To set preliminary guesses for weights and biases
+inline double RandomReal() { return (static_cast<double>(rand()) / RAND_MAX) * 2 - 1; }
 
-double XavierInitialization(int in, int out);
+// More efficient and stable initialisation
+static inline double XavierInitialization(int in, int out) {
+    double range = sqrt(6.0 / (in + out));
+    double x = RandomReal() * range;  // Scaled random value
+    return x;
+}
 
 class Node {
 public:
@@ -43,7 +48,7 @@ public:
 
     inline operator vector<double>() { return Weights; }
 
-    double& operator[](int index) {
+    inline double& operator[](int index) {
         if (index < 0 || index >= PrevLayerNodes) {
             throw std::out_of_range("Index out of bounds");
         }
@@ -68,7 +73,7 @@ public:
 
     inline operator vector<Node>() { return nodes; }
 
-    Node& operator[](int index) {
+    inline Node& operator[](int index) {
         if (index < 0 || index >= size) {
             throw std::out_of_range("Index out of bounds");
         }
@@ -76,40 +81,43 @@ public:
     }
 };
 
-
 class Network {
-    public:
-    //layers[layer][node][weight]
+    friend class NNFile;
+private:
+    // layers[layer][node][weight]
     vector<Layer> layers;
     Layer* inputLayer;
     Layer* outputLayer;
-    vector<size_t> structure;
+public:
     int networkSize;
+    vector<size_t> structure;
 
-    //constructor
     Network(vector<size_t> Structure);
 
     inline operator vector<Layer>() { return layers; }
 
+    inline Layer& operator[](int index) {
+        if (index < 0 || index >= networkSize) {
+            throw std::out_of_range("Index out of bounds");
+        }
+        return layers[index];
+    }
+
     void resetWeights();
 
-    void saveNetwork(string filename);
+    void saveNetwork(std::string filename);
+    void loadNetwork(std::string filename);
 
-    void loadNetwork(string filename);
-
-    //input vector to set input node layer
     void input(vector<double> input);
-
-    //passes data through layers
     void calculate();
 
-    //Gets strongest node
+    // Gets strongest node
     int getAnswer();
 
-    //Gets if the network correctly guessed
+    // Gets if the network correctly guessed
     bool isAnswerCorrect(vector<double> expectedAnswers);
 
-    //Gets the output layer
+    // Gets the output layer
     vector<double> getAnswerVector();
 
     double getCost(vector<double> expectedAnswers);
@@ -117,21 +125,15 @@ class Network {
     vector<vector<vector<double>>> differentiate(vector<double> expectedAnswers);
 
 private:
-    //input the gradients of the next layers nodes, the index of the node you are getting the gradient of, and the index of the current layer
     double getNodeGradient(vector<double> nextLayerNodeGradients, int nodePos, int currentLayerPos);
-
-    //input the gradients of the next layers nodes, the index of the node you are getting the gradient of, and the index of the current layer
-    double getGradient(double nextLayerNodeGradient, int layerPos, int nodePos, int weightPos);
-
-    double getGradient(double nextLayerNodeGradient, int layerPos, int nodePos);
+    double getWeightGradient(double nextLayerNodeGradient, int layerPos, int nodePos, int weightPos);
+    double getBiasGradient(double nextLayerNodeGradient, int layerPos, int nodePos);
 
 public:
-
     tuple< vector<vector<vector<double>>>, double, bool> Test(vector<vector<double>> testExample);
-
     tuple< vector<vector<vector<double>>>, double, double> TestSet(vector<vector<vector<double>>> testSet);
     
-    //removes gradient from the weights and biases
+    //removes average gradient from the weights and biases
     void alterByGradient(vector<vector<vector<double>>> averageGradient, double learningRate);
 
     //returns cost then accuracy

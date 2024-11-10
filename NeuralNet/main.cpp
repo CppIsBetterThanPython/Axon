@@ -1,13 +1,7 @@
-#include <cmath> //for basic math functions, for exponent used in sigmoid
-#include <cstdlib> //for random numbes
-#include <ctime> //so is this
+#include <cmath> // For basic math functions, for exponent used in sigmoid
 #include <iostream>
-#include <deque>
-#include <utility>
 #include <algorithm>  // For std::sort
-#include <string>
 #include <chrono>
-
 
 #include "NeuralNet.h"
 
@@ -29,7 +23,7 @@ vector<vector<vector<double>>> generateTestSet(int size) {
         
         vector<double> answer(2);
 
-        if (isInRange(point[0], x[0], x[1]) && isInRange(point[1], y[0], y[1])) {
+        if (IsInRange(point[0], x[0], x[1]) && IsInRange(point[1], y[0], y[1])) {
             answer = {1, 0};
         }
         else {
@@ -139,8 +133,7 @@ vector<double> testNetworkLearningSpeed(int testLength, int upperBound, double t
 
 int main() {
     srand(static_cast<int>(time(NULL)));
-    vector<size_t> Structure{6, 5, 5, 2};
-    Network TwoD_PlaneAI(Structure);
+    Network TwoD_PlaneAI( { 6, 5, 5, 2 } );
 
     TwoD_PlaneAI.loadNetwork("0");
 
@@ -156,6 +149,4 @@ int main() {
     std::cout << "Average elapsed time: " << averageElapsed << " seconds\n";
 
     std::cin.get();
-
-    return 0;
 }

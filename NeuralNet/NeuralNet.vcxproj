@@ -130,10 +130,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="NetworkBackProp.cpp" />
     <ClCompile Include="NeuralNet.cpp" />
     <ClCompile Include="NNFile.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="NetworkBackProp.h" />
     <ClInclude Include="NeuralNet.h" />
     <ClInclude Include="NN.h" />
   </ItemGroup>

@@ -1,28 +1,18 @@
-#include <cmath> //for basic math functions, for exponent used in sigmoid
-#include <cstdlib> //for random numbers
-#include <ctime> //so is this
-#include <iostream>
+#include <cmath> // For basic math functions, such as pow
+
+#include <cstdlib> // For random numbers
+#include <ctime> // So is this
+
 #include <vector> // (._.) < Really? ... )
-#include <deque>
-#include <utility>//for pair
-#include <tuple>//to return multiple different type values
+#include <tuple> // For returning multiple, different type values
+#include <iostream>
 
 #include "NeuralNet.h"
-#include "NN.h"
+#include "NN.h" // My filesaving class
 
-using namespace std;
+using std::vector, std::tuple;
 
-//to set preliminary guesses for weights and biases
-double RandomReal() { return (static_cast<double>(rand()) / RAND_MAX) * 2 - 1; }
-
-double XavierInitialization(int in, int out) {
-    double range = sqrt(6.0 / (in + out));
-    double x = RandomReal() * range;  // Scaled random value
-    return x;
-}
-
-//class Network
-////////////////////////////////////////////////////////////////////////////////////////////////
+// Node and Layer classes defined in header
 
 //constructor
 Network::Network(vector<size_t> Structure) {
@@ -47,19 +37,19 @@ void Network::resetWeights() {
     }
 }
 
-void Network::saveNetwork(string filename) {
+void Network::saveNetwork(std::string filename) {
     NNFile networkFile = NNFile(filename);
 
     networkFile.write(*this);
 }
 
-void Network::loadNetwork(string filename) {
+void Network::loadNetwork(std::string filename) {
     NNFile networkFile = NNFile(filename);
 
     networkFile.read(*this);
 }
 
-//input vector to set input node layer
+// Input vector to set input node layer
 void Network::input(vector<double> input) {
     if (input.size() == (*inputLayer).size) {
         for(int i = 0; i < (*inputLayer).size; i++) {
@@ -82,10 +72,6 @@ void Network::calculate() {
 
                 prevLayerData = layers[currentLayerIndex - 1].nodes[weightIndex].data;
                 currentLayerWeight = layers[currentLayerIndex].nodes[nodeIndex].Weights[weightIndex];
-                    
-                //cout << currentLayerIndex-1 << " " << nodeIndex << " " << weightIndex << endl;
-                //cout << prevLayerData << " ";
-                //cout << currentLayerWeight << endl;
 
                 preSigmoidTotal += (prevLayerData * currentLayerWeight);
             }
@@ -98,7 +84,7 @@ void Network::calculate() {
     }
 }
 
-//Gets strongest node
+// Gets strongest node
 int Network::getAnswer() {
     int largestEndNode = 0;
     for (int i = 1; i < layers[networkSize- 1].size; i++) {
@@ -109,7 +95,17 @@ int Network::getAnswer() {
     return largestEndNode;
 }
 
-//Gets if the network correctly guessed
+// Gets the output layer
+vector<double> Network::getAnswerVector() {
+    vector<double> answerVector{};
+    for (int i = 0; i < (*outputLayer).size; i++) {
+        answerVector.push_back((*outputLayer)[i].data);
+    }
+
+    return answerVector;
+}
+
+// Gets if the network correctly guessed
 bool Network::isAnswerCorrect(vector<double> expectedAnswers) {
     int answerIndex = 0;
     for (int i = 1; i < layers[networkSize- 1].size; i++) {
@@ -122,16 +118,6 @@ bool Network::isAnswerCorrect(vector<double> expectedAnswers) {
         return 1;
     }
     return 0;
-}
-
-//Gets the output layer
-vector<double> Network::getAnswerVector() {
-    vector<double> answerVector{};
-    for (int i = 0; i < (*outputLayer).size; i++) {
-        answerVector.push_back((*outputLayer)[i].data);
-    }
-
-    return answerVector;
 }
 
 double Network::getCost(vector<double> expectedAnswers) {
@@ -149,6 +135,7 @@ double Network::getCost(vector<double> expectedAnswers) {
     return cost;
 }
 
+// Returns a vector of how each bias and weight would like to be changed
 vector<vector<vector<double>>> Network::differentiate(vector<double> expectedAnswers) {
     //how the network would like the node data to change, used to calculate weight and bias gradients
     vector<vector<double>> nodeGradientVector(networkSize);
@@ -179,11 +166,11 @@ vector<vector<vector<double>>> Network::differentiate(vector<double> expectedAns
         for (int j = 0; j < structure[i]; j++) {
             //for the amount of weights in the current node
             for (int k = 0; k < structure[i-1]; k++) {
-                double weightGradient = getGradient(nodeGradientVector[i][j], i, j, k);
+                double weightGradient = getWeightGradient(nodeGradientVector[i][j], i, j, k);
                 controlableGradients[i][j].push_back(weightGradient);
             }
 
-            double biasGradient = getGradient(nodeGradientVector[i][j], i, j);
+            double biasGradient = getBiasGradient(nodeGradientVector[i][j], i, j);
             controlableGradients[i][j].push_back(biasGradient);
         }
     }
@@ -195,10 +182,6 @@ vector<vector<vector<double>>> Network::differentiate(vector<double> expectedAns
 double Network::getNodeGradient(vector<double> nextLayerNodeGradients, int nodePos, int currentLayerPos) {
     double nodeGradient = 0.0;
 
-    double currentLayerNodeWeight = 0.0;
-    double preSigmoidData = 0.0;
-    double derivativeAjToAk = 0.0;
-
     //  nL-1
     //  \    dC0   daj
     //  /    --- x ---
@@ -206,15 +189,15 @@ double Network::getNodeGradient(vector<double> nextLayerNodeGradients, int nodeP
     for (int j = 0; j < nextLayerNodeGradients.size(); j++) {
 
         //z
-        preSigmoidData = layers[currentLayerPos + 1][j].preSigmoidData;
+        double preSigmoidData = layers[currentLayerPos + 1][j].preSigmoidData;
 
         //wjk
-        currentLayerNodeWeight = layers[currentLayerPos + 1][j][nodePos];
+        double currentLayerNodeWeight = layers[currentLayerPos + 1][j][nodePos];
 
         // daj
         // ---
         // dak
-        derivativeAjToAk = SigmoidDerivative(preSigmoidData) * currentLayerNodeWeight;
+        double derivativeAjToAk = SigmoidDerivative(preSigmoidData) * currentLayerNodeWeight;
 
         // dC0   daj
         // --- x ---
@@ -226,7 +209,7 @@ double Network::getNodeGradient(vector<double> nextLayerNodeGradients, int nodeP
 }
 
 //input the gradients of the next layers nodes, the index of the node you are getting the gradient of, and the index of the current layer
-double Network::getGradient(double nextLayerNodeGradient, int layerPos, int nodePos, int weightPos) {
+double Network::getWeightGradient(double nextLayerNodeGradient, int layerPos, int nodePos, int weightPos) {
 
     double preSigmoidNodeData = layers[layerPos][nodePos].preSigmoidData;
 
@@ -246,7 +229,7 @@ double Network::getGradient(double nextLayerNodeGradient, int layerPos, int node
     return gradient;
 }
 
-double Network::getGradient(double nextLayerNodeGradient, int layerPos, int nodePos) {
+double Network::getBiasGradient(double nextLayerNodeGradient, int layerPos, int nodePos) {
 
     double preSigmoidNodeData = layers[layerPos][nodePos].preSigmoidData;
 
@@ -315,11 +298,11 @@ tuple< vector<vector<vector<double>>>, double, double> Network::TestSet(vector<v
         }
     }
 
-    //average gradient sum
+    // Average gradient sum
     for (int i = networkSize-1; i > 0; i--) {
-        //for the amount of nodes in the current layer
+        // For the amount of nodes in the current layer
         for (int j = 0; j < structure[i]; j++) {
-            //for the amount of weights in the current node
+            // For the amount of weights in the current node
             for (int k = 0; k < structure[i-1] + 1; k++) {
                 averageGradient[i][j][k] /= testSet.size();
             }
@@ -332,7 +315,7 @@ tuple< vector<vector<vector<double>>>, double, double> Network::TestSet(vector<v
     return {averageGradient, averageCost, averageCorrect};
 }
     
-//removes gradient from the weights and biases
+// Removes gradient from the weights and biases
 void Network::alterByGradient(vector<vector<vector<double>>> averageGradient, double learningRate) {
     //for the amount of layers with data
     for (int i = networkSize-1; i > 0; i--) {
@@ -352,6 +335,7 @@ void Network::alterByGradient(vector<vector<vector<double>>> averageGradient, do
     }
 }
 
+// Returns cost then accuracy
 vector<double> Network::improveNetworkBackPropogation(vector<vector<vector<double>>> testSet, double learningRate) {
 
     auto averageTestResult = TestSet(testSet);
@@ -364,5 +348,3 @@ vector<double> Network::improveNetworkBackPropogation(vector<vector<vector<doubl
 
     return {averageCost, averageCorrect};
 }
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////
