@@ -3,9 +3,13 @@
 #include <algorithm>  // For std::sort
 #include <chrono>
 
-#include "NeuralNet.h"
+#include "NetworkBackProp.h"
 
 using namespace std;
+
+inline bool IsInRange(double num, double lower, double upper) {
+    return (num >= lower && num <= upper);
+}
 
 vector<vector<vector<double>>> generateTestSet(int size) {
     vector<vector<vector<double>>> testSet(size);
@@ -39,7 +43,7 @@ vector<vector<vector<double>>> generateTestSet(int size) {
 }
 
 //returns cost then accuracy
-vector<double> constantLearningApproach(Network& network) {
+vector<double> constantLearningApproach(NetworkBackProp& network) {
     return network.improveNetworkBackPropogation(generateTestSet(1000), 1);
 }
 
@@ -52,7 +56,7 @@ double EWMA(double pastAverage, double currentCost, double smoothingFactor, int 
     return newAverage;
 };
 
-void train(Network& network) {
+void trainf( NetworkBackProp& network ) {
     double currentCost = 1;
     double weightedCost = constantLearningApproach(network)[0];
 
@@ -70,7 +74,7 @@ void train(Network& network) {
         instanceCounter++;
 
         if (instanceCounter % 1000 == 0) {
-            string filename = std::to_string(instanceCounter / 10000);
+            string filename = std::to_string(instanceCounter / 1000);
             filename += "-";
             filename += std::to_string(currentCost);
 
@@ -79,7 +83,7 @@ void train(Network& network) {
     }
 }
 
-vector<double> testNetworkLearningSpeed(int testLength, int upperBound, double targetCost, Network& network) {
+vector<double> testNetworkLearningSpeed(int testLength, int upperBound, double targetCost, NetworkBackProp& network) {
     int amountCompleted = testLength;
 
     double averageCount = 0.0;
@@ -133,11 +137,11 @@ vector<double> testNetworkLearningSpeed(int testLength, int upperBound, double t
 
 int main() {
     srand(static_cast<int>(time(NULL)));
-    Network TwoD_PlaneAI( { 6, 5, 5, 2 } );
+    NetworkBackProp TwoD_PlaneAI( { 6, 5, 5, 2 } );
 
     TwoD_PlaneAI.loadNetwork("0");
 
-    train(TwoD_PlaneAI);
+    trainf(TwoD_PlaneAI);
 
     vector<double> result = testNetworkLearningSpeed(10, 20000, 0.1, TwoD_PlaneAI);
 

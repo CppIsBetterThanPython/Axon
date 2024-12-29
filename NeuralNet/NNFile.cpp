@@ -96,36 +96,23 @@ bool NNFile::read(Network& network) {
 
 	for (Layer& layer : network.layers) {
 		for (Node& node : layer.nodes) {
-			for (double& weight : node.Weights) {
+			for (double& weight : node.Weights)
 				ReadFile.read(reinterpret_cast<char*>(&weight), sizeof(weight));
 
-				// Check if reading weight was successful
-				if (ReadFile.eof()) {
-					std::cerr << "Error: End of file!" << std::endl;
-					return 1;
-				}
-
-				// Check if reading weight was successful
-				if (ReadFile.fail()) {
-					std::cerr << "Error: Failed to read weight!" << std::endl;
-					return 1;
-				}
-			}
-
 			ReadFile.read(reinterpret_cast<char*>(&node.Bias), sizeof(node.Bias));
-
-			// Check if reading weight was successful
-			if (ReadFile.eof()) {
-				std::cerr << "Error: End of file!" << std::endl;
-				return 1;
-			}
-
-			// Check if reading bias was successful
-			if (ReadFile.fail()) {
-				std::cerr << "Error: Failed to read bias!" << std::endl;
-				return 1;
-			}
 		}
+	}
+
+	// Check if reading weight was successful
+	if (ReadFile.eof()) {
+		std::cerr << "Error: End of file!" << std::endl;
+		return 1;
+	}
+
+	// Check if reading bias was successful
+	if (ReadFile.fail()) {
+		std::cerr << "Error: Failed to read file!" << std::endl;
+		return 1;
 	}
 
 	std::cout << "Successfully read from file" << std::endl;

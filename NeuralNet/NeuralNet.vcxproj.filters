@@ -16,12 +16,12 @@
     <Filter Include="Source Files\Network Types">
       <UniqueIdentifier>{6e64475c-b458-4778-8512-f7be450c8f79}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\NetworkDependancies">
+      <UniqueIdentifier>{4ed6a5ff-f1d1-463d-8df2-9bb1e217c529}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="NNFile.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="NetworkBackProp.cpp">
@@ -29,6 +29,9 @@
     </ClCompile>
     <ClCompile Include="NeuralNet.cpp">
       <Filter>Source Files\Network Types</Filter>
+    </ClCompile>
+    <ClCompile Include="NNFile.cpp">
+      <Filter>Source Files\NetworkDependancies</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

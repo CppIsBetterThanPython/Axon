@@ -7,6 +7,10 @@
 class NNFile
 {
 public:
+	using Layer = Network::Layer;
+
+	using Node = Layer::Node;
+
 	std::filesystem::path filePath;
 
 	NNFile(std::string filename);
