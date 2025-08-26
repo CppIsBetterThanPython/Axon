@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <iostream>
+#include <filesystem>
 
 using std::vector, std::tuple;
 
@@ -87,6 +88,13 @@ public:
 
         return Weights[index];
     }
+
+    const double& operator[](size_t index) const {
+        if (index >= Weights.size())
+            throw std::out_of_range("Index out of bounds");
+
+        return Weights[index];
+    }
 };
 
 class Layer {
@@ -119,6 +127,13 @@ public:
 
         return nodes[index];
     }
+
+    const Node& operator[](size_t index) const {
+        if (index >= size)
+            throw std::out_of_range("Index out of bounds");
+
+        return nodes[index];
+    }
 };
 
 class Network {
@@ -131,9 +146,9 @@ public:
     size_t networkSize;
     vector<size_t> structure;
 
-    Network (vector<size_t> Structure);
+    Network (const vector<size_t>& Structure);
     
-    Network(std::string filename);
+    Network(const std::filesystem::path& filename);
 
     ~Network ();
 
@@ -150,8 +165,8 @@ public:
 
     void resetWeights ();
 
-    void saveNetwork ( std::string filename );
-    void loadNetwork ( std::string filename );
+    bool saveNetwork ( const std::filesystem::path & filename ) const;
+    bool loadNetwork ( const std::filesystem::path & filename );
 
     void input ( vector<double> input );
     void calculate ();
@@ -167,7 +182,7 @@ public:
 
     void SetParameters ( Parameters parameters );
 
-    Parameters GetParameters ();
+    Parameters GetParameters() const;
 
     Parameters EmptyParameters ();
 };

@@ -3,14 +3,13 @@
 
 #include "pch.h"
 #include "NeuralNet.h"
-#include "NN.h" // My filesaving class
 
 using std::vector, std::tuple;
 
 // Node and Layer classes defined in header
 
 //constructor
-Network::Network(vector<size_t> Structure) {
+Network::Network(const vector<size_t>& Structure) {
     networkSize = Structure.size();
     structure = Structure;
     //defines amount of layers
@@ -24,13 +23,10 @@ Network::Network(vector<size_t> Structure) {
     outputLayer = &layers[networkSize - 1];
 }
 
-Network::Network(std::string filename) {
-    // TODO: Prevent file creation
-    NNFile networkFile = NNFile(filename);
-
+Network::Network(const std::filesystem::path& filePath) {
     Parameters parameters;
 
-    networkFile.read(parameters);
+    this->loadNetwork(filePath);
 
     networkSize = parameters.structure.size();
     structure = parameters.structure;
@@ -61,22 +57,6 @@ void Network::resetWeights() {
     }
 }
 
-void Network::saveNetwork(std::string filename) {
-    NNFile networkFile = NNFile(filename);
-
-    networkFile.write(this->GetParameters());
-}
-
-void Network::loadNetwork(std::string filename) {
-    NNFile networkFile = NNFile(filename);
-    
-    Parameters parameters;
-
-    networkFile.read(parameters);
-
-    this->SetParameters(parameters);
-}
-
 // Input vector to set input node layer
 void Network::input(vector<double> input) {
     if (input.size() != (*inputLayer).size)
@@ -89,12 +69,12 @@ void Network::input(vector<double> input) {
 //passes data through layers
 void Network::calculate() {
     // TODO: Add GPU acceleration
-    for (int currentLayerIndex = 1; currentLayerIndex < networkSize; currentLayerIndex++) {
+    for (size_t currentLayerIndex = 1; currentLayerIndex < networkSize; currentLayerIndex++) {
 
-        for (int nodeIndex = 0; nodeIndex < layers[currentLayerIndex].size; nodeIndex++) {
+        for (size_t nodeIndex = 0; nodeIndex < layers[currentLayerIndex].size; nodeIndex++) {
             double preSigmoidTotal = 0;
 
-            for (int weightIndex = 0; weightIndex < layers[currentLayerIndex - 1].size; weightIndex++) {
+            for (size_t weightIndex = 0; weightIndex < layers[currentLayerIndex - 1].size; weightIndex++) {
                 //multiply previous nodes data by it's corresponding weight in the current node
 
                 double prevLayerData = layers[currentLayerIndex - 1].nodes[weightIndex].data;
@@ -149,10 +129,10 @@ void Network::SetParameters(Parameters parameters) {
     else if (this->structure != parameters.structure)
         throw std::out_of_range("Incorrect structure");
 
-    for (int layer = 0; layer < networkSize - 1; layer++) {
-        for (int node = 0; node < structure[layer + 1]; node++) {
+    for (size_t layer = 0; layer < networkSize - 1; layer++) {
+        for (size_t node = 0; node < structure[layer + 1]; node++) {
 
-            for (int weight = 0; weight < structure[layer]; weight++)
+            for (size_t weight = 0; weight < structure[layer]; weight++)
                 layers[layer + 1][node][weight] = parameters.data[layer][node][weight];
 
             layers[layer + 1][node].Bias = parameters.data[layer][node].back();
@@ -160,20 +140,20 @@ void Network::SetParameters(Parameters parameters) {
     }
 }
 
-Parameters Network::GetParameters() {
+Parameters Network::GetParameters() const {
     Parameters parameters;
     parameters.size = networkSize - 1;
     parameters.structure = structure;
     parameters.data = vector<vector<vector<double>>>(parameters.size);
 
-    for (int layer = 0; layer < parameters.size; layer++) {
+    for (size_t layer = 0; layer < parameters.size; layer++) {
 
         parameters.data[layer] = vector<vector<double>>(structure[layer + 1]);
 
-        for (int node = 0; node < structure[layer + 1]; node++) {
+        for (size_t node = 0; node < structure[layer + 1]; node++) {
             parameters.data[layer][node] = vector<double>(structure[layer] + 1);
 
-            for (int weight = 0; weight < structure[layer]; weight++)
+            for (size_t weight = 0; weight < structure[layer]; weight++)
                 parameters.data[layer][node][weight] = layers[layer + 1][node][weight];
 
             parameters.data[layer][node][structure[layer]] = layers[layer + 1][node].Bias;
@@ -187,9 +167,9 @@ Parameters Network::EmptyParameters() {
     parameters.size = networkSize - 1;
     parameters.structure = structure;
     parameters.data = vector<vector<vector<double>>>(parameters.size);
-    for (int i = 0; i < parameters.size; i++) {
+    for (size_t i = 0; i < parameters.size; i++) {
         parameters.data[i] = vector<vector<double>>(structure[i + 1]);
-        for (int j = 0; j < structure[i + 1]; j++) {
+        for (size_t j = 0; j < structure[i + 1]; j++) {
             parameters.data[i][j] = vector<double>(structure[i] + 1);
             for (double& parameter : parameters.data[i][j])
                 parameter = 0;

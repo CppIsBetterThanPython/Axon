@@ -1,5 +1,3 @@
-#include <cmath> // For basic math functions, for exponent used in sigmoid
-#include <iostream>
 #include <algorithm>  // For std::sort
 #include <chrono>
 #include <windows.h>
@@ -7,11 +5,18 @@
 #include <unordered_map>
 #include <map>
 #include <any>
+#include <fstream>
+#include <cstdlib>
 
 #include "NetworkBackProp.h"
 #include "Mnist.h"
 
 using nbp = NetworkBackProp;
+namespace fs = std::filesystem;
+
+const fs::path networksPath = std::getenv("LOCALAPPDATA") + std::string("\\neuralNetTraining\\networks");
+const fs::path autoSavesPath = networksPath / "autoSaves";
+const fs::path downloadsPath = std::getenv("userprofile") + std::string("\\Downloads");
 
 bool autoSave = true;
 int saveFrequency = 100;
@@ -19,6 +24,14 @@ double learningRate = 0.1;
 
 inline bool IsInRange(double num, double lower, double upper) {
     return (num >= lower && num <= upper);
+}
+
+void init() {
+    srand(static_cast<int>(time(NULL)));
+
+    if (!exists(autoSavesPath)) {
+        fs::create_directories(autoSavesPath);
+    }
 }
 
 vector<nbp::Test> generateTestSet(int size) {
@@ -61,6 +74,27 @@ double EWMA(double pastAverage, double currentCost, double smoothingFactor, size
     return newAverage;
 };
 
+bool create_file(fs::path filePath) {
+    std::ofstream file(filePath);
+    if (!file.is_open()) {
+        file.close();
+        std::cerr << "Failed to create file" << std::endl;
+        return 1;
+    }
+    file.close();
+    return 0;
+}
+
+static void autoSaver(const nbp& network, size_t code, double cost) {
+    fs::path filePath = autoSavesPath / (std::to_string(code) + "-" + std::to_string(cost) + ".nn");
+
+    if (!exists(filePath)) {
+        create_file(filePath);
+    }
+
+    network.saveNetwork(filePath);
+}
+
 void train(NetworkBackProp& network, const size_t& duration, const size_t& batchSize, const size_t& valSize, const size_t& valBatchSize, const size_t& valFrequency = 1) {
     static vector<nbp::Test> fullTrainSet = getTrainSet();
     if (valSize > fullTrainSet.size())
@@ -93,11 +127,7 @@ void train(NetworkBackProp& network, const size_t& duration, const size_t& batch
             std::cout << "cost: " << weightedCost << std::endl;
 
             if (i % saveFrequency == 0 && autoSave) {
-                std::string filename = std::to_string(i / saveFrequency);
-                filename += "-";
-                filename += std::to_string(weightedCost);
-
-                network.saveNetwork(filename);
+                autoSaver(network, i / saveFrequency, weightedCost);
             }
         }
     }
@@ -255,7 +285,7 @@ public:
                 auto& [func, descs] = entry;
 
                 for (std::string desc : descs)
-                    std::cout << name << " - " << desc << std::endl;
+                    std::cout << name << desc << std::endl;
             }
         }
         else {
@@ -271,14 +301,14 @@ public:
     Menu() {
         this->commands["help"] = { Help, {
             "Prints all possible commands in current menu.",
-            "help [command] - Prints the description for the given command."
+            " [command] - Prints the description for the given command."
         } };
     }
 
     Menu(vector<Cmd> commands) {
         this->commands["help"] = { Help, {
             "Prints all possible commands in current menu.",
-            "help [command] - Prints the description for the given command."
+            " [command] - Prints the description for the given command."
         } };
 
         for (auto& [name, entry] : commands) {
@@ -327,7 +357,7 @@ void printAny(std::any var) {
 }
 
 int main() {
-    srand(static_cast<int>(time(NULL)));
+    init();
 
     std::unordered_map<std::string, nbp*> Networks;
 
@@ -478,15 +508,19 @@ int main() {
             return;
         }
 
-        const std::string& path = input[1];
+        nbp* network = Networks[networkName];
 
-        if (nbp* network = dynamic_cast<nbp*>(Networks[networkName])) {
-            network->saveNetwork(path);
+        fs::path path = networksPath / input[1];
+        if (path.extension() != ".nn") {
+            path += ".nn";
         }
-        else {
-            std::cout << "Incorrect type of network." << std::endl;
-            return;
+
+        if (!exists(path)) {
+            create_file(path);
         }
+
+        network->saveNetwork(path);
+        
     };
 
     CmdFunc load = [&Networks](const std::vector<std::string> input) {
@@ -495,7 +529,12 @@ int main() {
             return;
         }
 
-        const std::string& path = input[1];
+        fs::path path = networksPath / input[1];
+
+        if (path.extension() != ".nn") {
+            std::cerr << "Incorrect file extension. Expected \".nn\" but got \"" + path.extension().string() + '"';
+            return;
+        }
 
         const std::string& networkName = input[0];
         if (!Networks.count(networkName)) {
@@ -528,24 +567,114 @@ int main() {
             return;
         }
 
-        const std::string& networkName = input[0];
-        if (!Networks.count(networkName)) {
-            std::cout << "No such network exists." << std::endl;
+        if (Networks.size() == 0) {
+            std::cout << "No Networks currently loaded." << std::endl;
+        }
+
+        for (auto& [key, network] : Networks) {
+            std::cout << key << " - { ";
+            for (size_t size : network->structure) {
+                std::cout << size << " ";
+            }
+            std::cout << " }" << std::endl;
+        }
+
+        };
+
+    CmdFunc listSaved = [](const std::vector<std::string> input) {
+        if (input.size() != 0) {
+            invalidParams();
             return;
         }
 
-        Networks.erase(networkName);
+        for (const auto& entry : fs::directory_iterator(networksPath)) {
+            fs::path path = entry;
+            if (path.extension() == ".nn")
+                std::cout << path.filename() << std::endl;
+        }
+
+    };
+
+    CmdFunc listAutoSaved = [](const std::vector<std::string> input) {
+        if (input.size() != 0) {
+            invalidParams();
+            return;
+        }
+
+        for (const auto& entry : fs::directory_iterator(autoSavesPath)) {
+            fs::path path = entry;
+            if (path.extension() == ".nn")
+                std::cout << path.filename() << std::endl;
+        }
+
+        };
+
+    CmdFunc deleteSaved = [](const std::vector<std::string> input) {
+        if (input.size() != 1) {
+            invalidParams();
+            return;
+        }
+
+        fs::path networkPath = networksPath / input[0];
+        if (!exists(networkPath)) {
+            std::cerr << "File not found." << std::endl;
+            return;
+        }
+        if (networkPath.extension() != ".nn") {
+            std::cerr << "Incorrect file extention" << std::endl;
+            return;
+        }
+
+        fs::remove(networkPath);
+
+        };
+
+    CmdFunc exp = [](const std::vector<std::string> input) {
+        if (input.size() != 1 && input.size() != 2) {
+            invalidParams();
+            return;
+        }
+
+        fs::path networkPath = networksPath / input[0];
+        if (!exists(networkPath)) {
+            std::cerr << "File not found." << std::endl;
+            return;
+        }
+        if (networkPath.extension() != ".nn") {
+            std::cerr << "Incorrect file extention" << std::endl;
+            return;
+        }
+
+        fs::path destinationPath;
+        if (input.size() == 1) {
+            destinationPath = downloadsPath / networkPath.filename();
+        }
+        else {
+            fs::path destinationDir = input[1];
+            if (!exists(destinationDir)) {
+                std::cerr << "Destination directory not found.";
+                return;
+            }
+            destinationPath = input[1] / networkPath.filename();
+        }
+        
+        fs::copy_file(networkPath, destinationPath);
 
         };
     
-    mainMenu.commands["get"]    = { get,                 { "get [param] - Gets the state of a global parameter." } };
-    mainMenu.commands["getall"] = { getGlobalParameters, { "getall - Gets the state of all global parameters." } };
-    mainMenu.commands["set"]    = { set,                 { "set [param] [value] - Sets the state of a global parameter." } };
-    mainMenu.commands["create"] = { createNetwork,       { "create [type] [name] {size} - Creates a network of the given type." } };
-    mainMenu.commands["delete"] = { load,                { "delete [network] - Deletes given Network." } };
-    mainMenu.commands["train"]  = { trainNetwork,        { "train [network] [duration] [batchSize] [valSize] [valBatchSize] - Creates a network of the given type." } };
-    mainMenu.commands["save"]   = { save,                { "save [network] [path] - Saves given Network." } };
-    mainMenu.commands["load"]   = { load,                { "load [network] [path] - Loads given Network." } };
+    mainMenu.commands["get"]         = { get,                 { " [param] - Gets the state of a global parameter." } };
+    mainMenu.commands["getall"]      = { getGlobalParameters, { " - Gets the state of all global parameters." } };
+    mainMenu.commands["set"]         = { set,                 { " [param] [value] - Sets the state of a global parameter." } };
+    mainMenu.commands["create"]      = { createNetwork,       { " [type] [name] {size} - Creates a network of the given type." } };
+    mainMenu.commands["delete"]      = { del,                 { " [network] - Deletes given Network." } };
+    mainMenu.commands["train"]       = { trainNetwork,        { " [network] [duration] [batchSize] [valSize] [valBatchSize] - Trains give Network." } };
+    mainMenu.commands["save"]        = { save,                { " [network] [path] - Saves given Network." } };
+    mainMenu.commands["load"]        = { load,                { " [network] [path] - Loads given Network." } };
+    mainMenu.commands["list"]        = { list,                { " - Lists all loaded Networks." } };
+    mainMenu.commands["listSaved"]   = { listSaved,           { " - Lists all saved Networks." } };
+    mainMenu.commands["listAuto"]    = { listAutoSaved,       { " - Lists all auto saved Networks." } };
+    mainMenu.commands["deleteSaved"] = { deleteSaved,         { " [path] - Deletes a saved Network." } };
+    mainMenu.commands["export"]      = { exp,                 { " [fromPath] [toPath] - Copies a network to another directory(Downloads by default)." } };
 
     Menu* currentMenu = &mainMenu;
 

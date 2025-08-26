@@ -1,44 +1,37 @@
 #include "pch.h"
-#include <iostream>
 #include <fstream>
 #include <filesystem>
-#include <vector>
 
-#include "NN.h"
 #include "NeuralNet.h"
 
 using namespace std::filesystem;
 
-NNFile::NNFile(std::string filename) {
-	filename += ".nn";
-
-	this->filePath = filename;
-
-	// Create file if does not exist;
-	if (!exists(filePath)) {
-		//  Create file
-		std::ofstream CreateFile(filename);
-
-		// Check if successful
-		if (CreateFile) {
-			std::cout << "File created" << std::endl;
-		}
-		else {
-			std::cerr << "Error creating file" << std::endl;
-		}
-
-		CreateFile.close();
+static bool isValid(path filePath) {
+	if (filePath.extension() != ".nn") {
+		std::cerr << "Invalid file extension. Expected \".nn\"" << std::endl;
+		return 1;
 	}
+
+	else if(!exists(filePath)) {
+		std::cerr << "Error: File not found!" << std::endl;
+		return 1;
+	}
+
+	return 0;
 }
 
-bool NNFile::write(Parameters parameters) {
+bool Network::saveNetwork(const path & filePath) const {
+	Parameters parameters = this->GetParameters();
+
+	if (!isValid(filePath)) {
+		return 1;
+	}
 
 	std::ofstream WriteFile(filePath, std::ios::binary);
 
-	// Check if the file was opened successfully
-	if (!WriteFile) { // Alternatively, you can use if (!outFile.is_open())
+	if (!WriteFile) {
 		std::cerr << "Error: Could not open the file for writing!" << std::endl;
-		return 1; // Exit with an error code
+		return 1;
 	}
 
 	size_t layerCount = parameters.size + 1;
@@ -56,10 +49,9 @@ bool NNFile::write(Parameters parameters) {
 		}
 	}
 
-	// Check if writing was successful
 	if (WriteFile.fail()) {
 		std::cerr << "Error: Writing to the file failed!" << std::endl;
-		return 1; // Exit with an error code
+		return 1;
 	}
 
 	std::cout << "Successfully wrote to file" << std::endl;
@@ -69,14 +61,18 @@ bool NNFile::write(Parameters parameters) {
 	return 0;
 }
 
-bool NNFile::read(Parameters& parameters) {
+bool Network::loadNetwork(const path& filePath) {
+	Parameters parameters;
+
+	if (!isValid(filePath)) {
+		return 1;
+	}
 
 	std::ifstream ReadFile(filePath, std::ios::binary);
 
-	// Check if the file was opened successfully
-	if (!ReadFile) { // Alternatively, you can use if (!outFile.is_open())
+	if (!ReadFile) {
 		std::cerr << "Error: Could not open the file for reading!" << std::endl;
-		return 1; // Exit with an error code
+		return 1;
 	}
 
 	size_t layerCount;
@@ -115,6 +111,8 @@ bool NNFile::read(Parameters& parameters) {
 	std::cout << "Successfully read from file" << std::endl;
 
 	ReadFile.close();
+
+	this->SetParameters(parameters);
 
 	return 0;
 }
