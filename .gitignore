@@ -10,6 +10,9 @@ bin/
 obj/
 x64/
 
+# Ignore cmake build directories
+out/
+
 # Ignore Visual Studio generated files
 .vs/
 *.vs/
