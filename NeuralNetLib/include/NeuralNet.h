@@ -165,6 +165,7 @@ public:
 
     void resetWeights ();
 
+    bool getNetwork(Parameters& parameters, const std::filesystem::path& filename);
     bool saveNetwork ( const std::filesystem::path & filename ) const;
     bool loadNetwork ( const std::filesystem::path & filename );
 

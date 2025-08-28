@@ -23,11 +23,11 @@ static bool isValid(path filePath) {
 bool Network::saveNetwork(const path & filePath) const {
 	Parameters parameters = this->GetParameters();
 
-	if (!isValid(filePath)) {
+	if (isValid(filePath)) {
 		return 1;
 	}
 
-	std::ofstream WriteFile(filePath, std::ios::binary);
+	std::ofstream WriteFile(filePath, std::ios::binary | std::ios::trunc);
 
 	if (!WriteFile) {
 		std::cerr << "Error: Could not open the file for writing!" << std::endl;
@@ -61,10 +61,9 @@ bool Network::saveNetwork(const path & filePath) const {
 	return 0;
 }
 
-bool Network::loadNetwork(const path& filePath) {
-	Parameters parameters;
+bool Network::getNetwork(Parameters& parameters, const path& filePath) {
 
-	if (!isValid(filePath)) {
+	if (isValid(filePath)) {
 		return 1;
 	}
 
@@ -111,6 +110,13 @@ bool Network::loadNetwork(const path& filePath) {
 	std::cout << "Successfully read from file" << std::endl;
 
 	ReadFile.close();
+
+	return 0;
+}
+
+bool Network::loadNetwork(const path& filePath) {
+	Parameters parameters;
+	getNetwork(parameters, filePath);
 
 	this->SetParameters(parameters);
 

@@ -357,6 +357,7 @@ void printAny(std::any var) {
 }
 
 int main() {
+    
     init();
 
     std::unordered_map<std::string, nbp*> Networks;
@@ -681,13 +682,4 @@ int main() {
     while (true) {
         currentMenu->getInput();
     }
-
-    NetworkBackProp TwoD_PlaneAI( vector<size_t>{ 28*28, 20, 20, 10 } );
-    //NetworkBackProp TwoD_PlaneAI(std::string("19-0.000171"));
-
-    train(TwoD_PlaneAI, 100, 100, 5000, 5000);
-
-    //vector<double> result = testNetworkLearningSpeed(10, 2000, 0.1, TwoD_PlaneAI);
-
-    std::cin.get();
 }

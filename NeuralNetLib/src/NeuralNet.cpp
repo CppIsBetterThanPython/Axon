@@ -26,7 +26,9 @@ Network::Network(const vector<size_t>& Structure) {
 Network::Network(const std::filesystem::path& filePath) {
     Parameters parameters;
 
-    this->loadNetwork(filePath);
+    if (this->getNetwork(parameters, filePath)) {
+        throw std::ios_base::failure("Failed to open file for writing: " + filePath.string());
+    }
 
     networkSize = parameters.structure.size();
     structure = parameters.structure;
@@ -94,7 +96,7 @@ void Network::calculate() {
 vector<double> Network::getAnswerVector() {
     vector<double> answerVector{};
 
-    for (int i = 0; i < (*outputLayer).size; i++)
+    for (int i = 0; i < outputLayer->size(); i++)
         answerVector.push_back((*outputLayer)[i].data);
 
     return answerVector;
@@ -103,7 +105,7 @@ vector<double> Network::getAnswerVector() {
 // Gets strongest node
 int Network::getAnswer() {
     int largestEndNode = 0;
-    for (int i = 1; i < layers[networkSize- 1].size; i++)
+    for (int i = 1; i < layers[netSize- 1].size(); i++)
         if ((*outputLayer)[i].data > (*outputLayer)[largestEndNode].data)
             largestEndNode = i;
     
@@ -113,7 +115,7 @@ int Network::getAnswer() {
 // Gets if the network correctly guessed
 bool Network::isAnswerCorrect(vector<double> expectedAnswers) {
     int answerIndex = 0;
-    for (int i = 1; i < layers[networkSize- 1].size; i++)
+    for (int i = 1; i < layers[netSize- 1].size(); i++)
         if (expectedAnswers[i] > expectedAnswers[answerIndex])
             answerIndex = i;
 
@@ -124,25 +126,25 @@ bool Network::isAnswerCorrect(vector<double> expectedAnswers) {
 }
 
 void Network::SetParameters(Parameters parameters) {
-    if (this->networkSize != parameters.size + 1)
+    if (this->netSize != parameters.size + 1)
         throw std::out_of_range("Index out of bounds");
     else if (this->structure != parameters.structure)
         throw std::out_of_range("Incorrect structure");
 
-    for (size_t layer = 0; layer < networkSize - 1; layer++) {
+    for (size_t layer = 0; layer < netSize - 1; layer++) {
         for (size_t node = 0; node < structure[layer + 1]; node++) {
 
             for (size_t weight = 0; weight < structure[layer]; weight++)
                 layers[layer + 1][node][weight] = parameters.data[layer][node][weight];
 
-            layers[layer + 1][node].Bias = parameters.data[layer][node].back();
+            layers[layer + 1][node].bias = parameters.data[layer][node].back();
         }
     }
 }
 
 Parameters Network::GetParameters() const {
     Parameters parameters;
-    parameters.size = networkSize - 1;
+    parameters.size = size() - 1;
     parameters.structure = structure;
     parameters.data = vector<vector<vector<double>>>(parameters.size);
 
@@ -156,7 +158,7 @@ Parameters Network::GetParameters() const {
             for (size_t weight = 0; weight < structure[layer]; weight++)
                 parameters.data[layer][node][weight] = layers[layer + 1][node][weight];
 
-            parameters.data[layer][node][structure[layer]] = layers[layer + 1][node].Bias;
+            parameters.data[layer][node][structure[layer]] = layers[layer + 1][node].bias;
         }
     }
     return parameters;
@@ -164,15 +166,13 @@ Parameters Network::GetParameters() const {
 
 Parameters Network::EmptyParameters() {
     Parameters parameters;
-    parameters.size = networkSize - 1;
+    parameters.size = size() - 1;
     parameters.structure = structure;
     parameters.data = vector<vector<vector<double>>>(parameters.size);
     for (size_t i = 0; i < parameters.size; i++) {
         parameters.data[i] = vector<vector<double>>(structure[i + 1]);
         for (size_t j = 0; j < structure[i + 1]; j++) {
-            parameters.data[i][j] = vector<double>(structure[i] + 1);
-            for (double& parameter : parameters.data[i][j])
-                parameter = 0;
+            parameters.data[i][j] = vector<double>(structure[i] + 1, 0);
         }
     }
 

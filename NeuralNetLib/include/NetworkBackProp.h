@@ -40,4 +40,3 @@ public:
     //returns cost then accuracy
     std::pair<double, double> testNetworkBackPropogation(const vector<Test>& testSet);
 };
-

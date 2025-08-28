@@ -12,6 +12,7 @@ x64/
 
 # Ignore cmake build directories
 out/
+build/
 
 # Ignore Visual Studio generated files
 .vs/
