@@ -4,14 +4,14 @@
 #include "NetworkBackProp.h"
 
 double NetworkBackProp::getCost(vector<double> expectedAnswers) {
-    if (expectedAnswers.size() != (*outputLayer).size) {
+    if (expectedAnswers.size() != outputLayer->size()) {
         throw std::out_of_range("More answers than expected");
     }
 
     double cost = 0;
     vector<double> actualAnswers = getAnswerVector();
 
-    for (int i = 0; i < (*outputLayer).size; i++) {
+    for (int i = 0; i < (*outputLayer).size(); i++) {
         cost += pow((actualAnswers[i] - expectedAnswers[i]), 2);
     }
 
@@ -21,18 +21,18 @@ double NetworkBackProp::getCost(vector<double> expectedAnswers) {
 // Returns a vector of how each bias and weight would like to be changed
 Parameters NetworkBackProp::differentiate(vector<double> expectedAnswers) {
     // How the network would like the node data to change, used to calculate weight and bias gradients
-    vector<vector<double>> nodeGradientVector(networkSize);
+    vector<vector<double>> nodeGradientVector(size());
     // Gradient of the controlable values (weights, biases)
     Parameters parameterGradients = this->EmptyParameters();
 
-    //calculates input layer gradients
-    for (int i = 0; i < structure[networkSize - 1]; i++) {
-        double nodeGradient = 2 * (layers[networkSize - 1][i].data - expectedAnswers[i]);
-        nodeGradientVector[networkSize - 1].push_back(nodeGradient);
+    // Calculates input layer gradients
+    for (int i = 0; i < structure[size() - 1]; i++) {
+        double nodeGradient = 2 * ((*this)[size() - 1][i].data - expectedAnswers[i]);
+        nodeGradientVector[size() - 1].push_back(nodeGradient);
     }
 
-    //for the amount of hidden layers
-    for (size_t i = networkSize - 2; i > 0; i--) {
+    // For the amount of hidden layers
+    for (size_t i = size() - 2; i > 0; i--) {
         //for the amount of nodes in the current layer
         for (size_t j = 0; j < structure[i]; j++) {
             double nodeGradient = getNodeGradient(nodeGradientVector[i + 1], j, i);
@@ -41,7 +41,7 @@ Parameters NetworkBackProp::differentiate(vector<double> expectedAnswers) {
     }
 
     //for the amount of layers with data
-    for (size_t i = 1; i < networkSize; i++) {
+    for (size_t i = 1; i < size(); i++) {
 
         //for the amount of nodes in the current layer
         for (size_t j = 0; j < structure[i]; j++) {
@@ -67,16 +67,16 @@ double NetworkBackProp::getNodeGradient(const vector<double>& nextLayerNodeGradi
     //  j=0  daj   dak
     for (int j = 0; j < nextLayerNodeGradients.size(); j++) {
 
-        //z
-        double preSigmoidData = layers[currentLayerPos + 1][j].preSigmoidData;
+        // sigma(z)
+        double data = (*this)[currentLayerPos + 1][j].data;
 
-        //wjk
-        double currentLayerNodeWeight = layers[currentLayerPos + 1][j][nodePos];
+        // wjk
+        double currentLayerNodeWeight = (*this)[currentLayerPos + 1][j][nodePos];
 
         // daj
         // ---
         // dak
-        double derivativeAjToAk = SigmoidDerivative(preSigmoidData) * currentLayerNodeWeight;
+        double derivativeAjToAk = data * (1 - data) * currentLayerNodeWeight;
 
         // dC0   daj
         // --- x ---
@@ -90,15 +90,16 @@ double NetworkBackProp::getNodeGradient(const vector<double>& nextLayerNodeGradi
 //input the gradients of the next layers nodes, the index of the node you are getting the gradient of, and the index of the current layer
 double NetworkBackProp::getWeightGradient(double nextLayerNodeGradient, size_t layerPos, size_t nodePos, size_t weightPos) {
 
-    double preSigmoidNodeData = layers[layerPos][nodePos].preSigmoidData;
+    // sigma(z)
+    double data = (*this)[layerPos][nodePos].data;
 
     //The data that the weight is multiplied by is part of the derivative
-    double currentLayerNodeData = layers[layerPos - 1][weightPos].data;
+    double currentLayerNodeData = (*this)[layerPos - 1][weightPos].data;
 
     // daj
     // ---
     // dwjk
-    double derivativeAjToWjk = SigmoidDerivative(preSigmoidNodeData) * currentLayerNodeData;
+    double derivativeAjToWjk = data * (1 - data) * currentLayerNodeData;
 
     // dC0   daj
     // --- x ---
@@ -110,12 +111,12 @@ double NetworkBackProp::getWeightGradient(double nextLayerNodeGradient, size_t l
 
 double NetworkBackProp::getBiasGradient(double nextLayerNodeGradient, size_t layerPos, size_t nodePos) {
 
-    double preSigmoidNodeData = layers[layerPos][nodePos].preSigmoidData;
+    double data = (*this)[layerPos][nodePos].data;
 
     // daj
     // ---
     // dbj
-    double derivativeAjToBj = SigmoidDerivative(preSigmoidNodeData);
+    double derivativeAjToBj = data * (1 - data);
 
     // dC0   daj
     // --- x ---
@@ -160,7 +161,7 @@ tuple< Parameters, double, double> NetworkBackProp::TrainSet(const vector<Test>&
         averageCost += cost;
 
         //for the amount of layers with data
-        for (size_t i = 0; i < networkSize - 1; i++) {
+        for (size_t i = 0; i < size() - 1; i++) {
 
             //for the amount of nodes in the current layer
             for (size_t j = 0; j < structure[i + 1]; j++) {
@@ -173,7 +174,7 @@ tuple< Parameters, double, double> NetworkBackProp::TrainSet(const vector<Test>&
     }
 
     // Average gradient sum
-    for (size_t i = 0; i < networkSize - 1; i++) {
+    for (size_t i = 0; i < size() - 1; i++) {
         // For the amount of nodes in the current layer
         for (size_t j = 0; j < structure[i + 1]; j++) {
             // For the amount of weights in the current node
@@ -231,15 +232,15 @@ tuple< double, double> NetworkBackProp::TestSet(const vector<Test>& testSet) {
 // Removes gradient from the weights and biases
 void NetworkBackProp::alterByGradient(const Parameters& averageGradient, double learningRate) {
     //for the amount of layers with data
-    for (size_t i = 0; i < networkSize - 1; i++) {
+    for (size_t i = 0; i < size() - 1; i++) {
         //for the amount of nodes in the current layer
         for (size_t j = 0; j < structure[i + 1]; j++) {
             //for the amount of weights in the current node
             for (size_t k = 0; k < structure[i]; k++) {
 
-                layers[i + 1][j][k] -= averageGradient[i][j][k] * learningRate;
+                (*this)[i + 1][j][k] -= averageGradient[i][j][k] * learningRate;
             }
-            layers[i + 1][j].Bias -= averageGradient[i][j][structure[i] - 1] * learningRate;
+            (*this)[i + 1][j].bias -= averageGradient[i][j][structure[i] - 1] * learningRate;
         }
     }
 }

@@ -10,17 +10,17 @@ using std::vector, std::tuple;
 
 //constructor
 Network::Network(const vector<size_t>& Structure) {
-    networkSize = Structure.size();
+    netSize = Structure.size();
     structure = Structure;
-    //defines amount of layers
-    layers = vector<Layer>(networkSize);
+    // Reserves enough data for the layers
+    layers.reserve(size());
 
-    for(size_t i = 0; i < networkSize; i++) {
-        layers[i] = Layer(structure[i], (i > 0) ? structure[i-1] : 0);
+    for(size_t i = 0; i < size(); i++) {
+        layers.push_back(Layer(structure[i], (i > 0) ? structure[i - 1] : 0));
     }
 
     inputLayer = &layers[0];
-    outputLayer = &layers[networkSize - 1];
+    outputLayer = &layers[size() - 1];
 }
 
 Network::Network(const std::filesystem::path& filePath) {
@@ -30,19 +30,19 @@ Network::Network(const std::filesystem::path& filePath) {
         throw std::ios_base::failure("Failed to open file for writing: " + filePath.string());
     }
 
-    networkSize = parameters.structure.size();
+    netSize = parameters.structure.size();
     structure = parameters.structure;
-    //defines amount of layers
-    layers = vector<Layer>(networkSize);
+    // Reserves enough data for the layers
+    layers.reserve(size());
 
-    for (size_t i = 0; i < networkSize; i++) {
-        layers[i] = Layer(structure[i], (i > 0) ? structure[i - 1] : 0);
+    for (size_t i = 0; i < netSize; i++) {
+        layers.push_back(Layer(structure[i], (i > 0) ? structure[i - 1] : 0));
     }
 
     this->SetParameters(parameters);
 
     inputLayer = &layers[0];
-    outputLayer = &layers[networkSize - 1];
+    outputLayer = &layers[netSize - 1];
 }
 
 Network::~Network() {
@@ -54,40 +54,39 @@ Network::~Network() {
 void Network::resetWeights() {
     layers.clear();
 
-    for (size_t i = 0; i < networkSize; i++) {
+    for (size_t i = 0; i < size(); i++) {
         layers[i] = Layer(structure[i], (i > 0) ? structure[i - 1] : 0);
     }
 }
 
 // Input vector to set input node layer
 void Network::input(vector<double> input) {
-    if (input.size() != (*inputLayer).size)
+    if (input.size() != inputLayer->size())
         throw std::out_of_range("Wrong input layer size");
     
-    for (int i = 0; i < (*inputLayer).size; i++)
+    for (int i = 0; i < inputLayer->size(); i++)
         (*inputLayer)[i].data = input[i];
 }
 
 //passes data through layers
 void Network::calculate() {
     // TODO: Add GPU acceleration
-    for (size_t currentLayerIndex = 1; currentLayerIndex < networkSize; currentLayerIndex++) {
+    for (size_t currentLayerIndex = 1; currentLayerIndex < size(); currentLayerIndex++) {
 
-        for (size_t nodeIndex = 0; nodeIndex < layers[currentLayerIndex].size; nodeIndex++) {
+        for (size_t nodeIndex = 0; nodeIndex < layers[currentLayerIndex].size(); nodeIndex++) {
             double preSigmoidTotal = 0;
 
-            for (size_t weightIndex = 0; weightIndex < layers[currentLayerIndex - 1].size; weightIndex++) {
+            for (size_t weightIndex = 0; weightIndex < layers[currentLayerIndex - 1].size(); weightIndex++) {
                 //multiply previous nodes data by it's corresponding weight in the current node
 
-                double prevLayerData = layers[currentLayerIndex - 1].nodes[weightIndex].data;
-                double currentLayerWeight = layers[currentLayerIndex].nodes[nodeIndex].Weights[weightIndex];
+                const double& prevLayerData = layers[currentLayerIndex - 1][weightIndex].data;
+                const double& currentLayerWeight = layers[currentLayerIndex][nodeIndex][weightIndex];
 
                 preSigmoidTotal += (prevLayerData * currentLayerWeight);
             }
-            preSigmoidTotal += layers[currentLayerIndex].nodes[nodeIndex].Bias;
-            layers[currentLayerIndex][nodeIndex].preSigmoidData = preSigmoidTotal;
+            preSigmoidTotal += layers[currentLayerIndex][nodeIndex].bias;
 
-            layers[currentLayerIndex].nodes[nodeIndex].data = Sigmoid(preSigmoidTotal);
+            layers[currentLayerIndex][nodeIndex].data = Sigmoid(preSigmoidTotal);
         }
     }
 }

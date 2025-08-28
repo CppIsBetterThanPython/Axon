@@ -57,26 +57,26 @@ struct Parameters {
     }
 };
 
+class Network;
+
 class Node {
-public:
-    double data = 0.0,
-        Bias = 0.1,
-        preSigmoidData = 0.0;
+private:
+    friend class Network;
 
     vector<double> Weights = {};
+public:
+    double& data,
+            bias;
 
-    Node() : data(0.0), Weights({}), Bias(0.1), preSigmoidData(0.0) {}
-
-    Node(size_t prevLayerNodes, size_t currentLayerNodes) : preSigmoidData(0.0), data(0.0), Bias(0.1) {
-        Weights = vector<double>(prevLayerNodes);
-        for (size_t i = 0; i < prevLayerNodes; i++) {
-            Weights[i] = XavierInitialization(prevLayerNodes, currentLayerNodes);
-        }
+    Node(double& data, double& bias, const size_t& prevLayerSize, const size_t& curLayerSize) : data(data), bias(bias) {
+        Weights.reserve(prevLayerSize);
+        for (size_t i = 0; i < prevLayerSize; i++)
+            Weights.push_back(XavierInitialization(prevLayerSize, curLayerSize));
     }
 
     operator std::vector<double>() const {
         std::vector<double> controlables = Weights;  // Copy Weights into a new vector
-        controlables.push_back(Bias);  // Add Bias to the vector
+        controlables.push_back(bias);  // Add Bias to the vector
         return controlables;  // Return the result
     }
 
@@ -98,17 +98,34 @@ public:
 };
 
 class Layer {
+private:
+    friend class Node;
+    friend class Network;
+    size_t         layerSize = 0;
+    vector<Node>   nodes = {};
+protected:
+    vector<double> biases = {};
+    vector<double> nodeData = {};
 public:
-    size_t       size = 0;
-    vector<Node> nodes = {};
+    // TODO: Make biases and data single vector in layer
 
-    Layer() : size(0), nodes({}) {}
+    Layer() : layerSize(0), nodes({}) {}
 
-    Layer(size_t NodesAmount, size_t previousLayerNodes) {
-        size = NodesAmount;
-        nodes = vector<Node>(NodesAmount);
-        for (int i = 0; i < NodesAmount; i++)
-            nodes[i] = Node(previousLayerNodes, NodesAmount);
+    Layer(size_t size, size_t prevLayerSize) {
+        this->layerSize = size;
+
+        nodes.reserve(size);
+        biases.reserve(size);
+        nodeData.reserve(size);
+        for (size_t i = 0; i < size; i++) {
+            nodeData.push_back(0.0);
+            biases.push_back(0.1);
+            nodes.push_back(Node{ nodeData[i], biases[i], prevLayerSize, size});
+        }
+    }
+
+    inline const size_t& size() const {
+        return layerSize;
     }
 
     operator vector<Node>() { return nodes; }
@@ -121,15 +138,15 @@ public:
         return dataVect;
     }
 
-    Node& operator[](size_t index) {
-        if (index >= size)
+    inline Node& operator[](size_t index) {
+        if (index >= size())
             throw std::out_of_range("Index out of bounds");
 
         return nodes[index];
     }
 
     const Node& operator[](size_t index) const {
-        if (index >= size)
+        if (index >= size())
             throw std::out_of_range("Index out of bounds");
 
         return nodes[index];
@@ -137,13 +154,13 @@ public:
 };
 
 class Network {
-protected:
+private:
     // layers[layer][node][weight]
     vector<Layer> layers;
+    size_t netSize;
+public:
     Layer* inputLayer;
     Layer* outputLayer;
-public:
-    size_t networkSize;
     vector<size_t> structure;
 
     Network (const vector<size_t>& Structure);
@@ -152,12 +169,16 @@ public:
 
     ~Network ();
 
+    inline const size_t& size() const {
+        return netSize;
+    }
+
     operator vector<Layer>() { return layers; }
 
     operator Parameters() { return this->GetParameters(); }
 
     Layer& operator[](size_t index) {
-        if (index >= networkSize)
+        if (index >= size())
             throw std::out_of_range("Index out of bounds");
         
         return layers[index];
