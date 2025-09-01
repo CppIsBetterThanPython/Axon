@@ -1,7 +1,6 @@
-#include <tuple>
-
-#include "pch.h"
 #include "NetworkBackProp.h"
+
+using std::vector, std::tuple;
 
 double NetworkBackProp::getCost(vector<double> expectedAnswers) {
     if (expectedAnswers.size() != outputLayer->size()) {

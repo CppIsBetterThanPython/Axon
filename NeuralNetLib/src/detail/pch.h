@@ -11,5 +11,7 @@
 #include <tuple>
 #include <vector>
 #include <iostream>
+#include <memory>
+#include <algorithm>
 
 #endif //PCH_H

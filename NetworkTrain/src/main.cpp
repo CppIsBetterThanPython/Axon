@@ -11,6 +11,7 @@
 #include "NetworkBackProp.h"
 #include "Mnist.h"
 
+using std::vector;
 using nbp = NetworkBackProp;
 namespace fs = std::filesystem;
 
@@ -19,6 +20,8 @@ const fs::path autoSavesPath = networksPath / "autoSaves";
 const fs::path downloadsPath = std::getenv("userprofile") + std::string("\\Downloads");
 
 bool autoSave = true;
+bool printProgress = true;
+bool useGPU = false;
 int saveFrequency = 100;
 double learningRate = 0.1;
 
@@ -95,7 +98,7 @@ static void autoSaver(const nbp& network, size_t code, double cost) {
     network.saveNetwork(filePath);
 }
 
-void train(NetworkBackProp& network, const size_t& duration, const size_t& batchSize, const size_t& valSize, const size_t& valBatchSize, const size_t& valFrequency = 1) {
+void trainFor(NetworkBackProp& network, const size_t duration, const size_t batchSize, const size_t valSize, const size_t valBatchSize, const size_t valFrequency = 1) {
     static vector<nbp::Test> fullTrainSet = getTrainSet();
     if (valSize > fullTrainSet.size())
         throw std::invalid_argument("Validation Set too large");
@@ -130,6 +133,47 @@ void train(NetworkBackProp& network, const size_t& duration, const size_t& batch
                 autoSaver(network, i / saveFrequency, weightedCost);
             }
         }
+    }
+}
+
+void trainUntil(NetworkBackProp& network, const double targetCost, const size_t batchSize, const size_t valSize, const size_t valBatchSize, const size_t valFrequency = 1) {
+    static vector<nbp::Test> fullTrainSet = getTrainSet();
+    if (valSize > fullTrainSet.size())
+        throw std::invalid_argument("Validation Set too large");
+
+    static vector<nbp::Test> trainSet(fullTrainSet.begin(), fullTrainSet.end() - valSize);
+    static vector<nbp::Test> valSet(fullTrainSet.end() - valSize, fullTrainSet.end());
+
+    std::vector<nbp::Test> trainBatch(trainSet.begin(), trainSet.begin() + batchSize);
+
+    double currentCost = 1;
+    double weightedCost = network.trainNetworkBackPropogation(trainBatch, 1).first;
+
+    size_t i = 0;
+    while (currentCost > targetCost) {
+        size_t batchBegin = (i * batchSize) % (trainSet.size() - batchSize);
+        trainBatch = std::vector<nbp::Test>(trainSet.begin() + batchBegin, trainSet.begin() + batchBegin + batchSize);
+
+        network.trainNetworkBackPropogation(trainBatch, learningRate);
+
+        if (i % valFrequency == 0) {
+            size_t batchBegin = (i * valBatchSize) % max(valSet.size() - valBatchSize, 1);
+            std::vector<nbp::Test> valBatch(trainSet.begin() + batchBegin, trainSet.begin() + batchBegin + valBatchSize);
+            auto [cost, accuracy] = network.testNetworkBackPropogation(valBatch);
+
+            currentCost = cost;
+            weightedCost = EWMA(weightedCost, currentCost, 0.8, i + 1);
+
+            std::cout << i << ":" << std::endl;
+            std::cout << "Accuracy: " << accuracy * 100 << "%" << std::endl;
+            std::cout << "cost: " << weightedCost << std::endl;
+
+            if (i % saveFrequency == 0 && autoSave) {
+                autoSaver(network, i / saveFrequency, weightedCost);
+            }
+        }
+
+        i++;
     }
 }
 
@@ -357,7 +401,7 @@ void printAny(std::any var) {
 }
 
 int main() {
-    
+
     init();
 
     std::unordered_map<std::string, nbp*> Networks;
@@ -365,7 +409,8 @@ int main() {
     std::unordered_map<std::string, std::any> globalParameters = {
         {"autoSave", &autoSave},
         {"saveFreq", &saveFrequency},
-        {"learningRate", &learningRate}
+        {"learningRate", &learningRate},
+        { "printTraining", &printProgress }
     };
     // Set the close handler
     /*if (!SetConsoleCtrlHandler(ConsoleCloseHandler, TRUE)) {
@@ -462,8 +507,24 @@ int main() {
             Networks[netName] = new nbp(networkSize);
         }
     };
+
+    CmdFunc del = [&Networks](const std::vector<std::string> input) {
+        if (input.size() != 1) {
+            invalidParams();
+            return;
+        }
+
+        const std::string& networkName = input[0];
+        if (!Networks.count(networkName)) {
+            std::cout << "No such network exists." << std::endl;
+            return;
+        }
+
+        Networks.erase(networkName);
+
+        };
     
-    CmdFunc trainNetwork = [&Networks](const std::vector<std::string> input) {
+    CmdFunc trainNetworkFor = [&Networks](const std::vector<std::string> input) {
         if (input.size() != 5) {
             invalidParams();
             return;
@@ -489,13 +550,47 @@ int main() {
         }
     
         if (nbp* network = dynamic_cast<nbp*>(Networks[networkName])) {
-            train(*network, params[0], params[1], params[2], params[3]);
+            trainFor(*network, params[0], params[1], params[2], params[3]);
         }
         else {
             std::cout << "Incorrect type of network." << std::endl;
             return;
         }
     };
+
+    CmdFunc trainNetworkUntil = [&Networks](const std::vector<std::string> input) {
+        if (input.size() != 5) {
+            invalidParams();
+            return;
+        }
+
+        const std::string& networkName = input[0];
+        if (!Networks.count(networkName)) {
+            std::cout << "No such network exists." << std::endl;
+            return;
+        }
+
+        vector<int> params;
+        params.reserve(input.size() - 1);
+
+        std::vector<std::string> strParams(input.begin() + 1, input.end());
+
+        for (std::string param : strParams) {
+            if (!canCastInt(param)) {
+                invalidParams();
+                return;
+            }
+            params.push_back(stoi(param));
+        }
+
+        if (nbp* network = dynamic_cast<nbp*>(Networks[networkName])) {
+            trainFor(*network, params[0], params[1], params[2], params[3]);
+        }
+        else {
+            std::cout << "Incorrect type of network." << std::endl;
+            return;
+        }
+        };
 
     CmdFunc save = [&Networks](const std::vector<std::string> input) {
         if (input.size() != 2) {
@@ -545,22 +640,6 @@ int main() {
             Networks[networkName]->loadNetwork(path);
         }
     };
-
-    CmdFunc del = [&Networks](const std::vector<std::string> input) {
-        if (input.size() != 1) {
-            invalidParams();
-            return;
-        }
-
-        const std::string& networkName = input[0];
-        if (!Networks.count(networkName)) {
-            std::cout << "No such network exists." << std::endl;
-            return;
-        }
-
-        Networks.erase(networkName);
-
-        };
 
     CmdFunc list = [&Networks](const std::vector<std::string> input) {
         if (input.size() != 0) {
@@ -668,7 +747,7 @@ int main() {
     mainMenu.commands["set"]         = { set,                 { " [param] [value] - Sets the state of a global parameter." } };
     mainMenu.commands["create"]      = { createNetwork,       { " [type] [name] {size} - Creates a network of the given type." } };
     mainMenu.commands["delete"]      = { del,                 { " [network] - Deletes given Network." } };
-    mainMenu.commands["train"]       = { trainNetwork,        { " [network] [duration] [batchSize] [valSize] [valBatchSize] - Trains give Network." } };
+    mainMenu.commands["train"]       = { trainNetworkFor,     { " [network] [duration] [batchSize] [valSize] [valBatchSize] - Trains give Network." } };
     mainMenu.commands["save"]        = { save,                { " [network] [path] - Saves given Network." } };
     mainMenu.commands["load"]        = { load,                { " [network] [path] - Loads given Network." } };
     mainMenu.commands["list"]        = { list,                { " - Lists all loaded Networks." } };

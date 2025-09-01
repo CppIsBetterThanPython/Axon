@@ -1,9 +1,8 @@
-#include "pch.h"
 #include <fstream>
-#include <filesystem>
 
 #include "NeuralNet.h"
 
+using std::vector;
 using namespace std::filesystem;
 
 static bool isValid(path filePath) {

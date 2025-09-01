@@ -1,15 +1,22 @@
 #include <cstdlib> // For random numbers
 #include <ctime> // So is this
 
-#include "pch.h"
 #include "NeuralNet.h"
+#include "GPU.h"
 
 using std::vector, std::tuple;
 
 // Node and Layer classes defined in header
 
-//constructor
-Network::Network(const vector<size_t>& Structure) {
+void Network::initGPU() {
+    gpu = std::make_unique<GPU>();
+
+    WeightBuffers = std::vector<std::unique_ptr<cl::Buffer>>{};
+    BiasBuffers = std::vector<std::unique_ptr<cl::Buffer>>{};
+    saveBuffers();
+}
+
+Network::Network(const vector<size_t>& Structure, bool useGPU) {
     netSize = Structure.size();
     structure = Structure;
     // Reserves enough data for the layers
@@ -21,9 +28,30 @@ Network::Network(const vector<size_t>& Structure) {
 
     inputLayer = &layers[0];
     outputLayer = &layers[size() - 1];
+
+    GPUacceleration = useGPU;
+    if (GPUacceleration) {
+        gpu = std::make_unique<GPU>();
+
+        WeightBuffers = std::vector<std::unique_ptr<cl::Buffer>>{};
+        BiasBuffers = std::vector<std::unique_ptr<cl::Buffer>>{};
+        saveBuffers();
+    }
 }
 
-Network::Network(const std::filesystem::path& filePath) {
+Network::Network(const Parameters& parameters, bool useGPU) {
+    this->SetParameters(parameters);
+
+    GPUacceleration = useGPU;
+    if (GPUacceleration) {
+        gpu = std::make_unique<GPU>();
+        WeightBuffers = std::vector<std::unique_ptr<cl::Buffer>>{};
+        BiasBuffers = std::vector<std::unique_ptr<cl::Buffer>>{};
+        saveBuffers();
+    }
+}
+
+Network::Network(const std::filesystem::path& filePath, bool useGPU) {
     Parameters parameters;
 
     if (this->getNetwork(parameters, filePath)) {
@@ -43,13 +71,18 @@ Network::Network(const std::filesystem::path& filePath) {
 
     inputLayer = &layers[0];
     outputLayer = &layers[netSize - 1];
+
+    GPUacceleration = useGPU;
+    if (GPUacceleration) {
+        WeightBuffers = std::vector<std::unique_ptr<cl::Buffer>>{};
+        BiasBuffers = std::vector<std::unique_ptr<cl::Buffer>>{};
+        gpu = std::make_unique<GPU>();
+        saveBuffers();
+    }
 }
 
-Network::~Network() {
-    std::string backupName = "BACKUP_";
-    backupName += rand();
-    this->saveNetwork(backupName);
-}
+// TODO: Better handle back ups
+Network::~Network() {};
 
 void Network::resetWeights() {
     layers.clear();
@@ -68,9 +101,20 @@ void Network::input(vector<double> input) {
         (*inputLayer)[i].data = input[i];
 }
 
-//passes data through layers
+// Passes data through layers
 void Network::calculate() {
-    // TODO: Add GPU acceleration
+    if (GPUacceleration) {
+        if (gpu) {
+            calculateGPU();
+            return;
+        }
+        std::cerr << "Had to fall Back to CPU." << std::endl;
+    }
+    calculateCPU();
+}
+
+// Passes data through layers
+void Network::calculateCPU() {
     for (size_t currentLayerIndex = 1; currentLayerIndex < size(); currentLayerIndex++) {
 
         for (size_t nodeIndex = 0; nodeIndex < layers[currentLayerIndex].size(); nodeIndex++) {
@@ -79,8 +123,8 @@ void Network::calculate() {
             for (size_t weightIndex = 0; weightIndex < layers[currentLayerIndex - 1].size(); weightIndex++) {
                 //multiply previous nodes data by it's corresponding weight in the current node
 
-                const double& prevLayerData = layers[currentLayerIndex - 1][weightIndex].data;
-                const double& currentLayerWeight = layers[currentLayerIndex][nodeIndex][weightIndex];
+                double prevLayerData = layers[currentLayerIndex - 1][weightIndex].data;
+                double currentLayerWeight = layers[currentLayerIndex][nodeIndex][weightIndex];
 
                 preSigmoidTotal += (prevLayerData * currentLayerWeight);
             }
@@ -124,6 +168,38 @@ bool Network::isAnswerCorrect(vector<double> expectedAnswers) {
     return 0;
 }
 
+void Network::loadBuffers() {
+    if (gpu) {
+        // TODO: implement
+    }
+}
+
+void Network::saveBuffers() {
+    if (gpu) {
+        //WeightBuffers.value().empty();
+        WeightBuffers.value().reserve(size());
+
+        //BiasBuffers.value().empty();
+        BiasBuffers.value().reserve(size());
+
+        for (size_t i = 1; i < size(); i++) {
+            Layer& layer = layers[i];
+            vector<double> layerWeights;
+            vector<double> layerBiases;
+            // TODO: reserve size
+            for (const Node& node : layer.nodes) {
+                layerWeights.insert(layerWeights.end(), node.Weights.begin(), node.Weights.end());
+                layerBiases.push_back(node.bias);
+            }
+            cl::Buffer weightBuffer(gpu.value()->context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(double) * layerWeights.size(), layerWeights.data());
+            cl::Buffer biasBuffer(gpu.value()->context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(double) * layerBiases.size(), layerBiases.data());
+
+            WeightBuffers.value().push_back(std::make_unique<cl::Buffer>(weightBuffer));
+            BiasBuffers.value().push_back(std::make_unique<cl::Buffer>(biasBuffer));
+        }
+    }
+}
+
 void Network::SetParameters(Parameters parameters) {
     if (this->netSize != parameters.size + 1)
         throw std::out_of_range("Index out of bounds");
@@ -145,6 +221,7 @@ Parameters Network::GetParameters() const {
     Parameters parameters;
     parameters.size = size() - 1;
     parameters.structure = structure;
+    // TODO: Make use reserve and not constructor
     parameters.data = vector<vector<vector<double>>>(parameters.size);
 
     for (size_t layer = 0; layer < parameters.size; layer++) {

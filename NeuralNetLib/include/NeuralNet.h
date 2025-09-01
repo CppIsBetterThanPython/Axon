@@ -1,16 +1,19 @@
 #pragma once
 
-#include <vector>
-#include <iostream>
 #include <filesystem>
+#include <optional>
 
-using std::vector, std::tuple;
+#include "pch.h"
 
 // To turn values into 0-1 range
 static inline double Sigmoid(double x) { return 1 / (1 + exp(-x)); }
 
 // For random number to use in Xavier Initialization
 inline double RandomReal() { return (static_cast<double>(rand()) / RAND_MAX) * 2 - 1; }
+
+bool initOpenCL();
+
+std::vector<double> multiplyVectorOpenCL(const std::vector<double>& input, double factor);
 
 // More efficient and stable initialisation
 static inline double XavierInitialization(size_t in, size_t out) {
@@ -21,35 +24,36 @@ static inline double XavierInitialization(size_t in, size_t out) {
 
 // Structure to store basic parameters of the network
 struct Parameters {
-    vector<vector<vector<double>>> data = {};
+    std::vector<std::vector<std::vector<double>>> data = {};
     size_t size = 0;
-    vector<size_t> structure = {};
+    std::vector<size_t> structure = {};
 
     Parameters() : data({}), size(0), structure({}) {}
 
-    Parameters(vector<size_t> structure) {
+    Parameters(std::vector<size_t> structure) {
+        // TODO: Use reserve.
         this->size = structure.size() - 1;
         this->structure = structure;
-        this->data = vector<vector<vector<double>>>(this->size);
+        this->data = std::vector<std::vector<std::vector<double>>>(this->size);
 
-        for (int i = 0; i < this->size; i++) {
-            this->data[i] = vector<vector<double>>(structure[i + 1]);
+        for (size_t i = 0; i < this->size; i++) {
+            this->data[i] = std::vector<std::vector<double>>(structure[i + 1]);
             for (int j = 0; j < structure[i + 1]; j++) {
-                this->data[i][j] = vector<double>(structure[i] + 1);
+                this->data[i][j] = std::vector<double>(structure[i] + 1);
                 for (double& parameter : this->data[i][j])
                     parameter = 0;
             }
         }
     }
 
-    inline vector<vector<double>>& operator[](size_t index) {
+    inline std::vector<std::vector<double>>& operator[](size_t index) {
         if (index > size)
             throw std::out_of_range("Index out of bounds");
 
         return data[index];
     }
 
-    inline const vector<vector<double>>& operator[](size_t index) const {
+    inline const std::vector<std::vector<double>>& operator[](size_t index) const {
         if (index > size)
             throw std::out_of_range("Index out of bounds");
 
@@ -63,12 +67,12 @@ class Node {
 private:
     friend class Network;
 
-    vector<double> Weights = {};
+    std::vector<double> Weights = {};
 public:
     double& data,
             bias;
 
-    Node(double& data, double& bias, const size_t& prevLayerSize, const size_t& curLayerSize) : data(data), bias(bias) {
+    Node(double& data, double& bias, const size_t prevLayerSize, const size_t curLayerSize) : data(data), bias(bias) {
         Weights.reserve(prevLayerSize);
         for (size_t i = 0; i < prevLayerSize; i++)
             Weights.push_back(XavierInitialization(prevLayerSize, curLayerSize));
@@ -89,7 +93,7 @@ public:
         return Weights[index];
     }
 
-    const double& operator[](size_t index) const {
+    const double operator[](size_t index) const {
         if (index >= Weights.size())
             throw std::out_of_range("Index out of bounds");
 
@@ -102,10 +106,10 @@ private:
     friend class Node;
     friend class Network;
     size_t         layerSize = 0;
-    vector<Node>   nodes = {};
+    std::vector<Node>   nodes = {};
 protected:
-    vector<double> biases = {};
-    vector<double> nodeData = {};
+    std::vector<double> biases = {};
+    std::vector<double> nodeData = {};
 public:
     // TODO: Make biases and data single vector in layer
 
@@ -124,14 +128,14 @@ public:
         }
     }
 
-    inline const size_t& size() const {
+    inline const size_t size() const {
         return layerSize;
     }
 
-    operator vector<Node>() { return nodes; }
+    operator std::vector<Node>() { return nodes; }
 
-    operator vector<double>& () {
-        vector<double> dataVect = {};
+    operator std::vector<double>& () {
+        std::vector<double> dataVect = {};
         for (double data : nodes)
             dataVect.push_back(data);
 
@@ -153,34 +157,73 @@ public:
     }
 };
 
+class GPU;
+
+namespace cl {
+    class Buffer;
+}
+
 class Network {
 private:
+    std::optional<std::vector<std::unique_ptr<cl::Buffer>>> WeightBuffers;
+    std::optional<std::vector<std::unique_ptr<cl::Buffer>>> BiasBuffers;
+    std::optional<std::unique_ptr<GPU>> gpu;
+    bool GPUacceleration;
     // layers[layer][node][weight]
-    vector<Layer> layers;
+    std::vector<Layer> layers;
     size_t netSize;
 public:
     Layer* inputLayer;
     Layer* outputLayer;
-    vector<size_t> structure;
-
-    Network (const vector<size_t>& Structure);
-    
-    Network(const std::filesystem::path& filename);
+    std::vector<size_t> structure;
+private:
+    void initGPU();
+public:
+    Network (const std::vector<size_t>& Structure, bool useGPU = true);
+    Network (const Parameters& parameters, bool useGPU = true);
+    Network (const std::filesystem::path& filename, bool useGPU = true);
 
     ~Network ();
 
-    inline const size_t& size() const {
+    inline const size_t size() const {
         return netSize;
     }
 
-    operator vector<Layer>() { return layers; }
+    inline const size_t largestLayer() const {
+        size_t curLargestLayer = 0;
+
+        for (Layer layer : layers) {
+            curLargestLayer = std::max(curLargestLayer, layer.size());
+        }
+
+        return curLargestLayer;
+    }
+
+    inline const size_t largestPassLayer() const {
+        size_t curLargestLayer = 0;
+
+        for (size_t i = 1; i < size(); i++) {
+            curLargestLayer = std::max(curLargestLayer, layers[i].size());
+        }
+
+        return curLargestLayer;
+    }
+
+    operator std::vector<Layer>() { return layers; }
 
     operator Parameters() { return this->GetParameters(); }
 
-    Layer& operator[](size_t index) {
+    inline Layer& operator[](size_t index) {
         if (index >= size())
             throw std::out_of_range("Index out of bounds");
         
+        return layers[index];
+    }
+
+    inline const Layer& operator[](size_t index) const {
+        if (index >= size())
+            throw std::out_of_range("Index out of bounds");
+
         return layers[index];
     }
 
@@ -190,20 +233,26 @@ public:
     bool saveNetwork ( const std::filesystem::path & filename ) const;
     bool loadNetwork ( const std::filesystem::path & filename );
 
-    void input ( vector<double> input );
+    void input (std::vector<double> input );
     void calculate ();
+    void calculateCPU ();
+    void calculateGPU ();
 
     // Gets strongest node
     int getAnswer ();
 
     // Gets if the network correctly guessed
-    bool isAnswerCorrect ( vector<double> expectedAnswers );
+    bool isAnswerCorrect (std::vector<double> expectedAnswers );
 
     // Gets the output layer
-    vector<double> getAnswerVector ();
+    std::vector<double> getAnswerVector ();
+
+protected:
+    void loadBuffers();
+    void saveBuffers();
+public:
 
     void SetParameters ( Parameters parameters );
-
     Parameters GetParameters() const;
 
     Parameters EmptyParameters ();
