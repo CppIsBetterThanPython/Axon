@@ -16,6 +16,8 @@ if (MSVC)
     add_compile_options(/permissive-)
 endif()
 
+enable_testing()
+
 # Include sub-projects.
 add_subdirectory ("NeuralNetLib")
 add_subdirectory ("NetworkTrain")

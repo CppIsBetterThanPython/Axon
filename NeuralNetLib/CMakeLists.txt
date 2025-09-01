@@ -30,6 +30,57 @@ install(TARGETS nnlib
         CONFIGURATIONS Debug Release
 )
 
-# TODO: Add tests and install targets if needed.
+install(DIRECTORY include/ DESTINATION include)
+
+install(EXPORT nnlibTargets
+        FILE nnlibConfig.cmake
+        NAMESPACE nnlib::
+        DESTINATION lib/cmake/nnlib
+)
 
 target_precompile_headers(nnlib PRIVATE src/detail/pch.h)
+
+# Add Tests
+
+enable_testing()
+
+include(FetchContent)
+FetchContent_Declare(
+    googletest
+    URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
+)
+
+# For Windows: Prevent overriding the parent project's compiler/linker settings
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(googletest)
+
+# Google Benchmark
+FetchContent_Declare(
+  googlebenchmark
+  URL https://github.com/google/benchmark/archive/refs/tags/v1.8.3.zip
+)
+FetchContent_MakeAvailable(googlebenchmark)
+
+add_executable(nnbenchmark "benchmark/benchmark.cpp")
+
+target_link_libraries(nnbenchmark
+PRIVATE
+    nnlib
+    benchmark::benchmark
+)
+
+add_executable(nntest "tests/test.cpp")
+
+target_compile_options(nntest PRIVATE
+    $<$<CONFIG:Debug>:/Zi /Od>
+)
+
+target_link_libraries(
+    nntest
+PRIVATE
+    nnlib
+    GTest::gtest_main
+)
+
+include(GoogleTest)
+gtest_discover_tests(nntest)
