@@ -10,6 +10,10 @@ bin/
 obj/
 x64/
 
+# Ignore cmake build directories
+out/
+build/
+
 # Ignore Visual Studio generated files
 .vs/
 *.vs/
@@ -23,3 +27,7 @@ x64/
 *.temp
 *.bak
 *.swp
+
+# Ignore my file to test iterations seperately
+Iterations/
+Test/
