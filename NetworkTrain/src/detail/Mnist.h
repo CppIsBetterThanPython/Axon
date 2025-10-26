@@ -2,6 +2,6 @@
 
 #include "NetworkBackProp.h"
 
-std::vector<NetworkBackProp::Test> getTestSet();
+std::vector<Test> getTestSet();
 
-std::vector<NetworkBackProp::Test> getTrainSet();
+std::vector<Test> getTrainSet();

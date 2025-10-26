@@ -84,3 +84,18 @@ PRIVATE
 
 include(GoogleTest)
 gtest_discover_tests(nntest)
+
+add_executable(test_utils "tests/testUtils.cpp")
+
+target_compile_options(test_utils PRIVATE
+    $<$<CONFIG:Debug>:/Zi /Od>
+)
+
+target_link_libraries(
+    test_utils
+PRIVATE
+    nnlib
+    GTest::gtest_main
+)
+
+gtest_discover_tests(test_utils)

@@ -7,11 +7,16 @@
 #ifndef PCH_H
 #define PCH_H
 
-// add headers that you want to pre-compile here
+// Standard containers
 #include <tuple>
 #include <vector>
-#include <iostream>
-#include <memory>
+#include <array>
+#include <span>
+
+#include <iostream> // For error logging
+
+#include <memory> // For smart pointers
 #include <algorithm>
+#include <numeric>
 
 #endif //PCH_H

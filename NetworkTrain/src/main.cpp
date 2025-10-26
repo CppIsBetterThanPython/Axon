@@ -1,6 +1,6 @@
 #include <algorithm>  // For std::sort
 #include <chrono>
-#include <windows.h>
+//#include <windows.h>
 #include <functional>
 #include <unordered_map>
 #include <map>
@@ -22,7 +22,7 @@ const fs::path downloadsPath = std::getenv("userprofile") + std::string("\\Downl
 bool autoSave = true;
 bool printProgress = true;
 bool useGPU = false;
-int saveFrequency = 100;
+int saveFrequency = 10000;
 double learningRate = 0.1;
 
 inline bool IsInRange(double num, double lower, double upper) {
@@ -37,8 +37,10 @@ void init() {
     }
 }
 
-vector<nbp::Test> generateTestSet(int size) {
-    vector<nbp::Test> testSet(size);
+vector<Test> generateTestSet(int size) {
+    vector<Test> testSet;
+
+    testSet.reserve(size);
 
     for (int i = 0; i < size; i++) {
         vector<double> x = { static_cast<double>(rand() % 100) + RandomReal(), static_cast<double>(rand() % 100) + RandomReal() };
@@ -49,9 +51,9 @@ vector<nbp::Test> generateTestSet(int size) {
 
         vector<double> point = { static_cast<double>(rand() % 100) + RandomReal(), static_cast<double>(rand() % 100) + RandomReal() };
 
-        vector<double> input = { x[0], y[0], x[1], y[1], point[0], point[1] };
+        TestData input( std::vector<double>{ x[0], y[0], x[1], y[1], point[0], point[1] } );
 
-        nbp::Answer answer(2, 0);
+        Answer answer( std::vector<double>(2, 0) );
 
         if (IsInRange(point[0], x[0], x[1]) && IsInRange(point[1], y[0], y[1])) {
             answer[0] = 1;
@@ -60,9 +62,9 @@ vector<nbp::Test> generateTestSet(int size) {
             answer[1] = 1;
         }
 
-        nbp::Test TestData = { input, answer };
+        Test TestData = Test{ input, answer };
 
-        testSet[i] = TestData;
+        testSet.push_back(TestData);
     }
 
     return testSet;
@@ -91,42 +93,37 @@ bool create_file(fs::path filePath) {
 static void autoSaver(const nbp& network, size_t code, double cost) {
     fs::path filePath = autoSavesPath / (std::to_string(code) + "-" + std::to_string(cost) + ".nn");
 
-    if (!exists(filePath)) {
-        create_file(filePath);
-    }
-
     network.saveNetwork(filePath);
 }
 
 void trainFor(NetworkBackProp& network, const size_t duration, const size_t batchSize, const size_t valSize, const size_t valBatchSize, const size_t valFrequency = 1) {
-    static vector<nbp::Test> fullTrainSet = getTrainSet();
+    static vector<Test> fullTrainSet = getTrainSet();
     if (valSize > fullTrainSet.size())
         throw std::invalid_argument("Validation Set too large");
 
-    static vector<nbp::Test> trainSet(fullTrainSet.begin(), fullTrainSet.end() - valSize);
-    static vector<nbp::Test> valSet(fullTrainSet.end() - valSize, fullTrainSet.end());
+    static vector<Test> trainSet(fullTrainSet.begin(), fullTrainSet.end() - valSize);
+    static vector<Test> valSet(fullTrainSet.end() - valSize, fullTrainSet.end());
 
-    std::vector<nbp::Test> trainBatch(trainSet.begin(), trainSet.begin() +  batchSize);
+    std::vector<Test> trainBatch(trainSet.begin(), trainSet.begin() +  batchSize);
 
-    double currentCost = 1;
-    double weightedCost = network.trainNetworkBackPropogation(trainBatch, 1).first;
+    // TODO: Weight accuracy aswell
+    double weightedCost = network.TrainSet(trainBatch, 1).cost;
 
     for (size_t i = 0; i < duration; i++) {
         size_t batchBegin = (i * batchSize) % (trainSet.size() - batchSize);
-        trainBatch = std::vector<nbp::Test>(trainSet.begin() + batchBegin, trainSet.begin() + batchBegin + batchSize);
+        trainBatch = std::vector<Test>(trainSet.begin() + batchBegin, trainSet.begin() + batchBegin + batchSize);
 
-        network.trainNetworkBackPropogation(trainBatch, learningRate);
+        network.TrainSet(trainBatch, learningRate);
 
         if (i % valFrequency == 0) {
-            size_t batchBegin = (i * valBatchSize) % max(valSet.size() - valBatchSize, 1);
-            std::vector<nbp::Test> valBatch(trainSet.begin() + batchBegin, trainSet.begin() + batchBegin + valBatchSize);
-            auto [cost, accuracy] = network.testNetworkBackPropogation(valBatch);
+            size_t batchBegin = (i * valBatchSize) % std::max(valSet.size() - valBatchSize, (size_t)1);
+            std::vector<Test> valBatch(trainSet.begin() + batchBegin, trainSet.begin() + batchBegin + valBatchSize);
+            TestResult testResult = network.TestSet(valBatch);
 
-            currentCost = cost;
-            weightedCost = EWMA(weightedCost, currentCost, 0.8, i + 1);
+            weightedCost = EWMA(weightedCost, testResult.cost, 0.8, i + 1);
 
             std::cout << i << ":" << std::endl;
-            std::cout << "Accuracy: " << accuracy * 100 << "%" << std::endl;
+            std::cout << "Accuracy: " << testResult.accuracy * 100 << "%" << std::endl;
             std::cout << "cost: " << weightedCost << std::endl;
 
             if (i % saveFrequency == 0 && autoSave) {
@@ -137,35 +134,35 @@ void trainFor(NetworkBackProp& network, const size_t duration, const size_t batc
 }
 
 void trainUntil(NetworkBackProp& network, const double targetCost, const size_t batchSize, const size_t valSize, const size_t valBatchSize, const size_t valFrequency = 1) {
-    static vector<nbp::Test> fullTrainSet = getTrainSet();
+    static vector<Test> fullTrainSet = getTrainSet();
     if (valSize > fullTrainSet.size())
         throw std::invalid_argument("Validation Set too large");
 
-    static vector<nbp::Test> trainSet(fullTrainSet.begin(), fullTrainSet.end() - valSize);
-    static vector<nbp::Test> valSet(fullTrainSet.end() - valSize, fullTrainSet.end());
+    static vector<Test> trainSet(fullTrainSet.begin(), fullTrainSet.end() - valSize);
+    static vector<Test> valSet(fullTrainSet.end() - valSize, fullTrainSet.end());
 
-    std::vector<nbp::Test> trainBatch(trainSet.begin(), trainSet.begin() + batchSize);
+    std::vector<Test> trainBatch(trainSet.begin(), trainSet.begin() + batchSize);
 
     double currentCost = 1;
-    double weightedCost = network.trainNetworkBackPropogation(trainBatch, 1).first;
+    double weightedCost = network.TrainSet(trainBatch, 1).cost;
 
     size_t i = 0;
     while (currentCost > targetCost) {
         size_t batchBegin = (i * batchSize) % (trainSet.size() - batchSize);
-        trainBatch = std::vector<nbp::Test>(trainSet.begin() + batchBegin, trainSet.begin() + batchBegin + batchSize);
+        trainBatch = std::vector<Test>(trainSet.begin() + batchBegin, trainSet.begin() + batchBegin + batchSize);
 
-        network.trainNetworkBackPropogation(trainBatch, learningRate);
+        network.TrainSet(trainBatch, learningRate);
 
         if (i % valFrequency == 0) {
-            size_t batchBegin = (i * valBatchSize) % max(valSet.size() - valBatchSize, 1);
-            std::vector<nbp::Test> valBatch(trainSet.begin() + batchBegin, trainSet.begin() + batchBegin + valBatchSize);
-            auto [cost, accuracy] = network.testNetworkBackPropogation(valBatch);
+            size_t batchBegin = (i * valBatchSize) % std::max(valSet.size() - valBatchSize, (size_t)1);
+            std::vector<Test> valBatch(trainSet.begin() + batchBegin, trainSet.begin() + batchBegin + valBatchSize);
+            TestResult testResult = network.TestSet(valBatch);
 
-            currentCost = cost;
+            currentCost = testResult.cost;
             weightedCost = EWMA(weightedCost, currentCost, 0.8, i + 1);
 
             std::cout << i << ":" << std::endl;
-            std::cout << "Accuracy: " << accuracy * 100 << "%" << std::endl;
+            std::cout << "Accuracy: " << testResult.accuracy * 100 << "%" << std::endl;
             std::cout << "cost: " << weightedCost << std::endl;
 
             if (i % saveFrequency == 0 && autoSave) {
@@ -306,11 +303,11 @@ private:
 
         for (size_t i = 0; i < str.size(); i++) {
             if (str[i] == ' ') {
-                output.push_back(str.substr(wordBegin, max(i - wordBegin, 0)));
-                wordBegin = min(i + 1, str.size() - 1);
+                output.push_back(str.substr(wordBegin, std::max(i - wordBegin, (size_t)0)));
+                wordBegin = std::min(i + 1, str.size() - 1);
             }
         }
-        output.push_back(str.substr(wordBegin, max(str.size(), 0)));
+        output.push_back(str.substr(wordBegin, std::max(str.size(), (size_t)0)));
 
         return output;
     }
@@ -404,7 +401,7 @@ int main() {
 
     init();
 
-    std::unordered_map<std::string, nbp*> Networks;
+    std::unordered_map<std::string, std::unique_ptr<nbp>> Networks;
 
     std::unordered_map<std::string, std::any> globalParameters = {
         {"autoSave", &autoSave},
@@ -504,7 +501,7 @@ int main() {
                 std::cout << "Network already exists." << std::endl;
                 return;
             }
-            Networks[netName] = new nbp(networkSize);
+            Networks[netName] = nbp::createNetwork(networkSize);
         }
     };
 
@@ -549,7 +546,7 @@ int main() {
             params.push_back(stoi(param));
         }
     
-        if (nbp* network = dynamic_cast<nbp*>(Networks[networkName])) {
+        if (nbp* network = dynamic_cast<nbp*>(Networks[networkName].get())) {
             trainFor(*network, params[0], params[1], params[2], params[3]);
         }
         else {
@@ -583,7 +580,7 @@ int main() {
             params.push_back(stoi(param));
         }
 
-        if (nbp* network = dynamic_cast<nbp*>(Networks[networkName])) {
+        if (nbp* network = dynamic_cast<nbp*>(Networks[networkName].get())) {
             trainFor(*network, params[0], params[1], params[2], params[3]);
         }
         else {
@@ -604,8 +601,6 @@ int main() {
             return;
         }
 
-        nbp* network = Networks[networkName];
-
         fs::path path = networksPath / input[1];
         if (path.extension() != ".nn") {
             path += ".nn";
@@ -615,7 +610,7 @@ int main() {
             create_file(path);
         }
 
-        network->saveNetwork(path);
+        Networks[networkName]->saveNetwork(path);
         
     };
 
@@ -628,13 +623,19 @@ int main() {
         fs::path path = networksPath / input[1];
 
         if (path.extension() != ".nn") {
-            std::cerr << "Incorrect file extension. Expected \".nn\" but got \"" + path.extension().string() + '"';
+            std::cerr << "Incorrect file extension. Expected \".nn\" but got \"" + path.extension().string() + "\"\n";
+            return;
+        }
+
+        if (!exists(path)) {
+            std::cerr << "File not found.\n";
             return;
         }
 
         const std::string& networkName = input[0];
         if (!Networks.count(networkName)) {
-            Networks[networkName] = new nbp(path);
+            // TODO: Use smart pointers.
+            Networks[networkName] = nbp::createNetwork( path, Network::Interface::CPU );
         }
         else {
             Networks[networkName]->loadNetwork(path);
@@ -653,7 +654,7 @@ int main() {
 
         for (auto& [key, network] : Networks) {
             std::cout << key << " - { ";
-            for (size_t size : network->structure) {
+            for (size_t size : network->getStructure()) {
                 std::cout << size << " ";
             }
             std::cout << " }" << std::endl;

@@ -30,7 +30,7 @@ uint8_t read_uint8(std::ifstream& file) {
     return value;
 }
 
-std::vector<nbp::Test> getImageSet(const std::string& image_path, const std::string& lable_path) {
+std::vector<Test> getImageSet(const std::string& image_path, const std::string& lable_path) {
     std::ifstream image_file(image_path, std::ios::binary);
     std::ifstream label_file(lable_path, std::ios::binary);
 
@@ -56,11 +56,13 @@ std::vector<nbp::Test> getImageSet(const std::string& image_path, const std::str
     std::cout << "Magic Number (Labels): " << magic_number << std::endl;
     std::cout << "Number of Labels: " << num_labels << std::endl;
 
-    std::vector<nbp::Test> testSet(num_images);
+    std::vector<Test> testSet;
+
+    testSet.reserve(num_images);
 
     // Read the image data and labels
     for (uint32_t i = 0; i < num_images; ++i) {
-        nbp::TestData image(num_cols * num_rows);
+        TestData image(std::vector<double>(num_cols * num_rows));
 
         // Read image pixels
         for (uint32_t j = 0; j < num_cols * num_rows; j++) {
@@ -72,12 +74,12 @@ std::vector<nbp::Test> getImageSet(const std::string& image_path, const std::str
 
         // You can further process the image here, e.g., storing in a structure or array
 
-        nbp::Answer answer(10, 0);
+        Answer answer(std::vector<double>(10, 0));
 
         answer[label] = 1;
 
-        nbp::Test test = { image, answer };
-        testSet[i] = test;
+        Test test = Test{ image, answer };
+        testSet.push_back(test);
     }
 
     image_file.close();
@@ -86,14 +88,14 @@ std::vector<nbp::Test> getImageSet(const std::string& image_path, const std::str
     return testSet;
 }
 
-std::vector<nbp::Test> getTrainSet() {
+std::vector<Test> getTrainSet() {
     return getImageSet(
         "data/train-images.idx3-ubyte",
         "data/train-labels.idx1-ubyte"
     );
 }
 
-std::vector<nbp::Test> getTestSet() {
+std::vector<Test> getTestSet() {
     return getImageSet(
         "data/t10k-images.idx3-ubyte",
         "data/t10k-labels.idx1-ubyte"

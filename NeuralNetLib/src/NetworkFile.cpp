@@ -5,6 +5,9 @@
 using std::vector;
 using namespace std::filesystem;
 
+// TODO: Better error handling
+// TODO: Make saving cleaner and more abstract
+
 static bool isValid(path filePath) {
 	if (filePath.extension() != ".nn") {
 		std::cerr << "Invalid file extension. Expected \".nn\"" << std::endl;
@@ -19,10 +22,9 @@ static bool isValid(path filePath) {
 	return 0;
 }
 
-bool Network::saveNetwork(const path & filePath) const {
-	Parameters parameters = this->GetParameters();
+bool saveParameters(const Parameters& parameters, const path & filePath) {
 
-	if (isValid(filePath)) {
+	if (filePath.extension() != ".nn") {
 		return 1;
 	}
 
@@ -41,11 +43,12 @@ bool Network::saveNetwork(const path & filePath) const {
 		WriteFile.write(reinterpret_cast<const char*>(&nodeCount), sizeof(nodeCount));
 	}
 
-	for (vector<vector<double>>& layer : parameters.data) {
-		for (vector<double> node : layer) {
-			for (double parameter : node)
-				WriteFile.write(reinterpret_cast<const char*>(&parameter), sizeof(parameter));
-		}
+	for (const double weight : parameters.weightsData) {
+		WriteFile.write(reinterpret_cast<const char*>(&weight), sizeof(weight));
+	}
+
+	for (const double bias : parameters.biasesData) {
+		WriteFile.write(reinterpret_cast<const char*>(&bias), sizeof(bias));
 	}
 
 	if (WriteFile.fail()) {
@@ -60,17 +63,18 @@ bool Network::saveNetwork(const path & filePath) const {
 	return 0;
 }
 
-bool Network::getNetwork(Parameters& parameters, const path& filePath) {
+// TODO: Throw errors or smth, or make this a constructor for parameters ig
+Parameters getParameters(const path& filePath) {
 
 	if (isValid(filePath)) {
-		return 1;
+		//return 1;
 	}
 
 	std::ifstream ReadFile(filePath, std::ios::binary);
 
 	if (!ReadFile) {
 		std::cerr << "Error: Could not open the file for reading!" << std::endl;
-		return 1;
+		//return 1;
 	}
 
 	size_t layerCount;
@@ -85,39 +89,45 @@ bool Network::getNetwork(Parameters& parameters, const path& filePath) {
 		structure.push_back(nodeCount);
 	}
 
-	parameters = Parameters(structure);
+	Parameters parameters = Parameters(structure);
 
-	for (vector<vector<double>>& layer : parameters.data) {
-		for (vector<double>& node : layer) {
-			for (double& parameter : node)
-				ReadFile.read(reinterpret_cast<char*>(&parameter), sizeof(parameter));
-		}
+	for (double& weight : parameters.weightsData) {
+		ReadFile.read(reinterpret_cast<char*>(&weight), sizeof(weight));
+	}
+
+	for (double& bias : parameters.biasesData) {
+		ReadFile.read(reinterpret_cast<char*>(&bias), sizeof(bias));
 	}
 
 	// Check if reading weight was successful
 	if (ReadFile.eof()) {
 		std::cerr << "Error: End of file!" << std::endl;
-		return 1;
+		//return 1;
 	}
 
 	// Check if reading bias was successful
 	if (ReadFile.fail()) {
 		std::cerr << "Error: Failed to read file!" << std::endl;
-		return 1;
+		//return 1;
 	}
 
 	std::cout << "Successfully read from file" << std::endl;
 
 	ReadFile.close();
 
-	return 0;
+	//return 0;
+
+	return parameters;
 }
 
 bool Network::loadNetwork(const path& filePath) {
-	Parameters parameters;
-	getNetwork(parameters, filePath);
+	parameters = getParameters(filePath);
 
-	this->SetParameters(parameters);
+	return 0;
+}
+
+bool Network::saveNetwork(const std::filesystem::path& filename) const {
+	saveParameters(parameters, filename);
 
 	return 0;
 }

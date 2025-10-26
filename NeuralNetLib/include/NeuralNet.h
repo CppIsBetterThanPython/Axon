@@ -3,158 +3,232 @@
 #include <filesystem>
 #include <optional>
 
-#include "pch.h"
+#include "utils.h"
 
-// To turn values into 0-1 range
-static inline double Sigmoid(double x) { return 1 / (1 + exp(-x)); }
-
-// For random number to use in Xavier Initialization
-inline double RandomReal() { return (static_cast<double>(rand()) / RAND_MAX) * 2 - 1; }
-
-bool initOpenCL();
-
-std::vector<double> multiplyVectorOpenCL(const std::vector<double>& input, double factor);
-
-// More efficient and stable initialisation
-static inline double XavierInitialization(size_t in, size_t out) {
-    double range = sqrt(6.0 / (in + out));
-    double x = RandomReal() * range;  // Scaled random value
-    return x;
-}
-
+// TODO: Dynamically split the 1d vector
+// TODO: Add == operator
 // Structure to store basic parameters of the network
 struct Parameters {
-    std::vector<std::vector<std::vector<double>>> data = {};
-    size_t size = 0;
-    std::vector<size_t> structure = {};
+private:
+    std::vector<double> weightsData;
+    std::vector<double> biasesData;
+public:
+    std::vector<std::vector<std::span<double>>> weights;
+    std::vector<std::span<double>> biases;
+    size_t size;
+    std::vector<size_t> structure;
 
-    Parameters() : data({}), size(0), structure({}) {}
+    friend bool saveParameters(const Parameters& parameters, const std::filesystem::path& filePath);
+
+    friend Parameters getParameters(const std::filesystem::path& filePath);
 
     Parameters(std::vector<size_t> structure) {
-        // TODO: Use reserve.
-        this->size = structure.size() - 1;
+        // TODO: Use std::accumulate
+        size = structure.size() - 1;
         this->structure = structure;
-        this->data = std::vector<std::vector<std::vector<double>>>(this->size);
-
-        for (size_t i = 0; i < this->size; i++) {
-            this->data[i] = std::vector<std::vector<double>>(structure[i + 1]);
-            for (int j = 0; j < structure[i + 1]; j++) {
-                this->data[i][j] = std::vector<double>(structure[i] + 1);
-                for (double& parameter : this->data[i][j])
-                    parameter = 0;
-            }
-        }
-    }
-
-    inline std::vector<std::vector<double>>& operator[](size_t index) {
-        if (index > size)
-            throw std::out_of_range("Index out of bounds");
-
-        return data[index];
-    }
-
-    inline const std::vector<std::vector<double>>& operator[](size_t index) const {
-        if (index > size)
-            throw std::out_of_range("Index out of bounds");
-
-        return data[index];
-    }
-};
-
-class Network;
-
-class Node {
-private:
-    friend class Network;
-
-    std::vector<double> Weights = {};
-public:
-    double& data,
-            bias;
-
-    Node(double& data, double& bias, const size_t prevLayerSize, const size_t curLayerSize) : data(data), bias(bias) {
-        Weights.reserve(prevLayerSize);
-        for (size_t i = 0; i < prevLayerSize; i++)
-            Weights.push_back(XavierInitialization(prevLayerSize, curLayerSize));
-    }
-
-    operator std::vector<double>() const {
-        std::vector<double> controlables = Weights;  // Copy Weights into a new vector
-        controlables.push_back(bias);  // Add Bias to the vector
-        return controlables;  // Return the result
-    }
-
-    operator double() { return data; }
-
-    double& operator[](size_t index) {
-        if (index >= Weights.size())
-            throw std::out_of_range("Index out of bounds");
-
-        return Weights[index];
-    }
-
-    const double operator[](size_t index) const {
-        if (index >= Weights.size())
-            throw std::out_of_range("Index out of bounds");
-
-        return Weights[index];
-    }
-};
-
-class Layer {
-private:
-    friend class Node;
-    friend class Network;
-    size_t         layerSize = 0;
-    std::vector<Node>   nodes = {};
-protected:
-    std::vector<double> biases = {};
-    std::vector<double> nodeData = {};
-public:
-    // TODO: Make biases and data single vector in layer
-
-    Layer() : layerSize(0), nodes({}) {}
-
-    Layer(size_t size, size_t prevLayerSize) {
-        this->layerSize = size;
-
-        nodes.reserve(size);
-        biases.reserve(size);
-        nodeData.reserve(size);
+        size_t weightsSize = 0;
+        size_t biasesSize = 0;
         for (size_t i = 0; i < size; i++) {
-            nodeData.push_back(0.0);
-            biases.push_back(0.1);
-            nodes.push_back(Node{ nodeData[i], biases[i], prevLayerSize, size});
+            weightsSize += structure[i] * structure[i + 1];
+            biasesSize += structure[i + 1];
+        }
+        weightsData = std::vector<double>(weightsSize);
+        biasesData = std::vector<double>(biasesSize);
+
+        weights.reserve(size);
+        biases.reserve(size);
+
+        size_t currentBiasIndexStart = 0;
+        size_t currentWeightIndexStart = 0;
+        for (size_t layerID = 0; layerID < size; layerID++) {
+            const size_t prevLayerSize = structure[layerID];
+            const size_t currentLayerSize = structure[layerID + 1];
+            
+            weights.push_back(std::vector<std::span<double>>(currentLayerSize));
+            biases.push_back(std::span<double>(&biasesData[currentBiasIndexStart], currentLayerSize));
+            for (std::span<double>& node : weights[layerID]) {
+                node = std::span<double>(&weightsData[currentWeightIndexStart], prevLayerSize);
+
+                currentWeightIndexStart += prevLayerSize;
+            }
+
+            currentBiasIndexStart += currentLayerSize;
         }
     }
 
-    inline const size_t size() const {
-        return layerSize;
+    Parameters(Parameters&& other) noexcept
+        : weightsData(std::move(other.weightsData)),
+        biasesData(std::move(other.biasesData)),
+        structure(std::move(other.structure)),
+        size(std::move(other.size)) {
+
+        moveSpans();
     }
 
-    operator std::vector<Node>() { return nodes; }
+    Parameters(const Parameters& other)
+        : weightsData(other.weightsData),
+        biasesData(other.biasesData),
+        structure(other.structure),
+        size(other.size) {
 
-    operator std::vector<double>& () {
-        std::vector<double> dataVect = {};
-        for (double data : nodes)
-            dataVect.push_back(data);
-
-        return dataVect;
+        moveSpans();
     }
 
-    inline Node& operator[](size_t index) {
-        if (index >= size())
-            throw std::out_of_range("Index out of bounds");
+    Parameters& operator=(const Parameters& other) {
+        if (this == &other)
+            return *this;
 
-        return nodes[index];
+        weightsData = other.weightsData;
+        biasesData = other.biasesData;
+        structure = other.structure;
+        size = other.size;
+
+        moveSpans();
+
+        return *this;
     }
 
-    const Node& operator[](size_t index) const {
-        if (index >= size())
-            throw std::out_of_range("Index out of bounds");
+    void initParameters() {
+        for (size_t layerID = 0; layerID < size; layerID++)
+            for (std::span<double>& node : weights[layerID])
+                for (double& weight : node)
+                    weight = XavierInitialization(structure[layerID], structure[layerID + 1]);
 
-        return nodes[index];
+        for (double& bias : biasesData)
+            bias = 0.1;
     }
+
+    // TODO: Evaluate if clear is neccessary
+    void moveSpans() {
+        weights.clear();
+        biases.clear();
+
+        weights.reserve(size);
+        biases.reserve(size);
+
+        size_t currentBiasIndexStart = 0;
+        size_t currentWeightIndexStart = 0;
+        for (size_t layerID = 0; layerID < size; layerID++) {
+            const size_t prevLayerSize = structure[layerID];
+            const size_t currentLayerSize = structure[layerID + 1];
+
+            weights.push_back(std::vector<std::span<double>>(currentLayerSize));
+            biases.push_back(std::span<double>(&biasesData[currentBiasIndexStart], currentLayerSize));
+            for (std::span<double>& node : weights[layerID]) {
+                node = std::span<double>(&weightsData[currentWeightIndexStart], prevLayerSize);
+
+                currentWeightIndexStart += prevLayerSize;
+            }
+
+            currentBiasIndexStart += currentLayerSize;
+        }
+    }
+
+    Parameters operator+(Parameters other) const {
+        if (other.structure != structure)
+            throw std::invalid_argument("class Parameters: Parameters addition is only valid for parameters of the same structure.");
+
+        Parameters added = Parameters(structure);
+
+        for (int i = 0; i < weightsData.size(); i++) {
+            added.weightsData[i] = this->weightsData[i] + other.weightsData[i];
+        }
+
+        for (int i = 0; i < biasesData.size(); i++) {
+            added.biasesData[i] = this->biasesData[i] + other.biasesData[i];
+        }
+
+        return added;
+    }
+
+    Parameters operator-(Parameters other) const {
+        if (other.structure != structure)
+            throw std::invalid_argument("class Parameters: Parameters addition is only valid for parameters of the same structure.");
+
+        Parameters subtracted = Parameters(structure);
+
+        for (int i = 0; i < weightsData.size(); i++) {
+            subtracted.weightsData[i] = this->weightsData[i] - other.weightsData[i];
+        }
+
+        for (int i = 0; i < biasesData.size(); i++) {
+            subtracted.biasesData[i] = this->biasesData[i] - other.biasesData[i];
+        }
+
+        return subtracted;
+    }
+
+    template<typename T>
+    Parameters operator*(T scalar) const {
+        Parameters scaled = Parameters(structure);
+
+        for (int i = 0; i < weightsData.size(); i++) {
+            scaled.weightsData[i] = this->weightsData[i] *  scalar;
+        }
+
+        for (int i = 0; i < biasesData.size(); i++) {
+            scaled.biasesData[i] = this->weightsData[i] * scalar;
+        }
+
+        return scaled;
+    }
+
+    template<typename T>
+    Parameters operator/(T scalar) const {
+        Parameters scaled = Parameters(structure);
+
+        for (int i = 0; i < weightsData.size(); i++) {
+            scaled.weightsData[i] = this->weightsData[i] / scalar;
+        }
+
+        for (int i = 0; i < biasesData.size(); i++) {
+            scaled.biasesData[i] = this->biasesData[i] / scalar;
+        }
+
+        return scaled;
+    }
+
+    bool operator==(const Parameters& other) const {
+        if (other.structure != structure)
+            return false;
+
+        if (other.weightsData != weightsData || other.biasesData != biasesData)
+            return false;
+
+        return true;
+    }
+};
+
+class NetworkBase {
+    std::vector<size_t> structure;
+    size_t netSize;
+public:
+
+    NetworkBase(const std::vector<size_t>& structure) : structure(structure) {
+        netSize = structure.size();
+    }
+
+    virtual void input(const std::vector<std::vector<double>>&) = 0;
+    virtual void input(const std::vector<double>& input) = 0;
+    virtual void calculate() = 0;
+    virtual std::vector<double> getAnswerVector() const = 0;
+    virtual std::vector<std::vector<double>> getAnswerVectors() const = 0;
+
+    // Gets strongest node
+    virtual size_t getAnswer() const {
+        std::vector<double> answer = getAnswerVector();
+        return getLargestID( answer );
+    }
+
+    // Gets if the network correctly guessed
+    virtual bool isAnswerCorrect(const std::vector<double>& expectedAnswers) { return (getLargestID(expectedAnswers) == getAnswer()); }
+
+    inline const size_t& size()            const { return netSize;           }
+    inline const size_t& inputLayerSize()  const { return structure.front(); }
+    inline const size_t& outputLayerSize() const { return structure.back();  }
+
+    inline const std::vector<size_t>& getStructure()             const { return structure;        }
+    inline const size_t&              getStructure(size_t index) const { return structure[index]; }
 };
 
 class GPU;
@@ -163,97 +237,108 @@ namespace cl {
     class Buffer;
 }
 
-class Network {
-private:
-    std::optional<std::vector<std::unique_ptr<cl::Buffer>>> WeightBuffers;
-    std::optional<std::vector<std::unique_ptr<cl::Buffer>>> BiasBuffers;
-    std::optional<std::unique_ptr<GPU>> gpu;
-    bool GPUacceleration;
-    // layers[layer][node][weight]
-    std::vector<Layer> layers;
-    size_t netSize;
+class NetworkCPU : public NetworkBase {
+protected:
+    Parameters& parameters;
+    std::vector<double> nodeDataRaw;
+    std::vector<std::span<double>> nodeData;
+
+    std::vector<std::vector<double>> batchedInputs;
+    std::vector<std::vector<double>> batchedOutputs;
 public:
-    Layer* inputLayer;
-    Layer* outputLayer;
-    std::vector<size_t> structure;
+
+    NetworkCPU(Parameters& parameters);
+
+    void input(const std::vector<std::vector<double>>&) override;
+    void input(const std::vector<double>&) override;
+
+    void calculate() override;
 private:
-    void initGPU();
+    void calculatePass();
 public:
-    Network (const std::vector<size_t>& Structure, bool useGPU = true);
-    Network (const Parameters& parameters, bool useGPU = true);
-    Network (const std::filesystem::path& filename, bool useGPU = true);
+
+    std::vector<double> getAnswerVector() const override;
+    std::vector<std::vector<double>> getAnswerVectors() const override;
+};
+
+class NetworkGPU : public NetworkBase {
+protected:
+    std::vector<std::unique_ptr<cl::Buffer>> WeightBuffers;
+    std::vector<std::unique_ptr<cl::Buffer>> BiasBuffers;
+
+    size_t batchSize = 1;
+
+    std::unique_ptr<cl::Buffer> inputBuffer;
+    std::unique_ptr<cl::Buffer> outputBuffer;
+
+    std::unique_ptr<GPU> gpu;
+
+    Parameters& parameters;
+public:
+
+    NetworkGPU(Parameters& parameters);
+
+    ~NetworkGPU();
+
+    void input(const std::vector<std::vector<double>>&) override;
+    void input(const std::vector<double>&) override;
+    void calculate() override;
+    std::vector<double> getAnswerVector() const override;
+    std::vector<std::vector<double>> getAnswerVectors() const override;
+
+    void loadBuffers();
+    void saveBuffers();
+
+    inline size_t largestLayer() const {
+        size_t curLargestLayer = 0;
+
+        for (size_t i = 0; i < size(); i++)
+            curLargestLayer = std::max(curLargestLayer, getStructure(i));
+
+        return curLargestLayer;
+    }
+
+    inline size_t largestPassLayer() const {
+        size_t curLargestLayer = 0;
+
+        for (size_t i = 1; i < size(); i++)
+            curLargestLayer = std::max(curLargestLayer, getStructure(i));
+
+        return curLargestLayer;
+    }
+};
+
+// TODO: Add enum state and limit what functions can be called based on state.
+class Network : public NetworkBase {
+public:
+    enum class Interface { CPU, GPU };
+protected:
+    Parameters parameters;
+    // Unique pointer is for polymorphism for other network types.
+    std::optional<std::unique_ptr<NetworkCPU>> cpuInterface;
+    std::optional<std::unique_ptr<NetworkGPU>> gpuInterface;
+    Interface interface_;
+
+    // initParameters is to defer initialisation to derived classes to avoid initialising twice.
+    Network(const Parameters& parameters, Interface interface_ = Interface::GPU, bool initParameters = true);
+public:
+    static std::unique_ptr<Network> createNetwork(const Parameters& parameters, Interface interface_ = Interface::GPU);
+    static std::unique_ptr<Network> createNetwork(const std::vector<size_t>& Structure, Interface interface_ = Interface::GPU);
+    static std::unique_ptr<Network> createNetwork(const std::filesystem::path& filename, Interface interface_ = Interface::GPU);
+
+    virtual void switchInterface();
 
     ~Network ();
 
-    inline const size_t size() const {
-        return netSize;
-    }
-
-    inline const size_t largestLayer() const {
-        size_t curLargestLayer = 0;
-
-        for (Layer layer : layers) {
-            curLargestLayer = std::max(curLargestLayer, layer.size());
-        }
-
-        return curLargestLayer;
-    }
-
-    inline const size_t largestPassLayer() const {
-        size_t curLargestLayer = 0;
-
-        for (size_t i = 1; i < size(); i++) {
-            curLargestLayer = std::max(curLargestLayer, layers[i].size());
-        }
-
-        return curLargestLayer;
-    }
-
-    operator std::vector<Layer>() { return layers; }
-
-    operator Parameters() { return this->GetParameters(); }
-
-    inline Layer& operator[](size_t index) {
-        if (index >= size())
-            throw std::out_of_range("Index out of bounds");
-        
-        return layers[index];
-    }
-
-    inline const Layer& operator[](size_t index) const {
-        if (index >= size())
-            throw std::out_of_range("Index out of bounds");
-
-        return layers[index];
-    }
-
-    void resetWeights ();
-
-    bool getNetwork(Parameters& parameters, const std::filesystem::path& filename);
     bool saveNetwork ( const std::filesystem::path & filename ) const;
     bool loadNetwork ( const std::filesystem::path & filename );
 
-    void input (std::vector<double> input );
-    void calculate ();
-    void calculateCPU ();
-    void calculateGPU ();
-
-    // Gets strongest node
-    int getAnswer ();
-
-    // Gets if the network correctly guessed
-    bool isAnswerCorrect (std::vector<double> expectedAnswers );
-
-    // Gets the output layer
-    std::vector<double> getAnswerVector ();
-
-protected:
-    void loadBuffers();
-    void saveBuffers();
-public:
-
-    void SetParameters ( Parameters parameters );
-    Parameters GetParameters() const;
-
-    Parameters EmptyParameters ();
+    void input(const std::vector<std::vector<double>>&);
+    void input (const std::vector<double>& input ) override;
+    void calculate () override;
+    std::vector<double> getAnswerVector() const override;
+    std::vector<std::vector<double>> getAnswerVectors() const;
 };
+
+Parameters getParameters(const std::filesystem::path& filePath);
+bool saveParameters(const Parameters& parameters, const std::filesystem::path& filePath);
