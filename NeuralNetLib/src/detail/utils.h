@@ -2,6 +2,8 @@
 
 #include "pch.h"
 
+inline constexpr size_t defaultSeed = 5489u;
+
 // TODO: Try to make constexpr
 // To turn values into 0-1 range
 static inline double Sigmoid(const double x) { return 1 / (1 + exp(-x)); }
@@ -33,11 +35,17 @@ size_t getLargestID(const std::vector<T>& vec) {
 
 // TODO: use std::random 
 // For random number to use in Xavier Initialization
-inline double RandomReal() { return (static_cast<double>(rand()) / RAND_MAX) * 2 - 1; }
+template<typename T>
+inline double RandomReal(T& randomEngine) {
+    static std::uniform_real_distribution<double> distribution(-1, 1);
+
+    return distribution(randomEngine);
+}
 
 // More efficient and stable initialisation
-static inline double XavierInitialization(size_t in, size_t out) {
+template<typename T>
+static inline double XavierInitialization(size_t in, size_t out, T& randomEngine) {
     double range = sqrt(6.0 / (in + out));
-    double x = RandomReal() * range;  // Scaled random value
+    double x = RandomReal(randomEngine) * range;  // Scaled random value
     return x;
 }

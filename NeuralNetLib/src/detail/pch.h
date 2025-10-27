@@ -17,6 +17,7 @@
 
 #include <memory> // For smart pointers
 #include <algorithm>
-#include <numeric>
+#include <numeric> // For std::accumulate
+#include <random>
 
 #endif //PCH_H

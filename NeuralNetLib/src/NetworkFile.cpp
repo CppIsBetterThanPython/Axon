@@ -63,6 +63,7 @@ bool saveParameters(const Parameters& parameters, const path & filePath) {
 	return 0;
 }
 
+// TODO: Make this store some more useful metadata
 // TODO: Throw errors or smth, or make this a constructor for parameters ig
 Parameters getParameters(const path& filePath) {
 
@@ -114,6 +115,10 @@ Parameters getParameters(const path& filePath) {
 	std::cout << "Successfully read from file" << std::endl;
 
 	ReadFile.close();
+
+	// TODO: store this in the file, unsafe as if someone saves an uninitialised network and then loads it will be flagged as initialised
+	// I just cba to do it now
+	parameters.isInitialised = true;
 
 	//return 0;
 

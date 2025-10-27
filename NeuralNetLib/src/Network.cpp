@@ -4,10 +4,25 @@
 #include "NeuralNet.h"
 #include "GPU.h"
 
-using std::vector, std::tuple;
+Network::Network(const Parameters& parameters, Interface interface_, std::optional<size_t> seed, bool initParameters)
+    : NetworkBase(parameters.structure),
+    parameters(parameters) {
 
-Network::Network(const Parameters& parameters, Interface interface_, bool initParameters)
-    : NetworkBase(parameters.structure), parameters(parameters) {
+    if (seed.has_value()) {
+        this->seed = seed.value();
+        randomEngine = std::mt19937(seed.value());
+    }
+    else {
+        size_t randomSeed = std::random_device{}();
+
+        this->seed = randomSeed;
+
+        randomEngine = std::mt19937(randomSeed);
+    }
+
+    if (!this->parameters.getIsInitialised()) {
+        this->parameters.initParameters(randomEngine);
+    }
 
     state = State::Ready;
     inputType = InputType::Singular;
@@ -23,19 +38,18 @@ Network::Network(const Parameters& parameters, Interface interface_, bool initPa
     }
 }
 
-std::unique_ptr<Network> Network::createNetwork(const Parameters& parameters, Interface interface_) {
-    return std::unique_ptr<Network>(new Network(parameters, interface_));
+std::unique_ptr<Network> Network::createNetwork(const Parameters& parameters, Interface interface_, std::optional<size_t> seed) {
+    return std::unique_ptr<Network>(new Network(parameters, interface_, seed));
 }
 
-std::unique_ptr<Network> Network::createNetwork(const std::vector<size_t>& Structure, Interface interface_) {
+std::unique_ptr<Network> Network::createNetwork(const std::vector<size_t>& Structure, Interface interface_, std::optional<size_t> seed) {
     Parameters parameters(Structure);
-    parameters.initParameters();
 
-    return std::unique_ptr<Network>(new Network(parameters, interface_));
+    return std::unique_ptr<Network>(new Network(parameters, interface_, seed));
 }
 
-std::unique_ptr<Network> Network::createNetwork(const std::filesystem::path& filename, Interface interface_) {
-    return std::unique_ptr<Network>(new Network(getParameters(filename), interface_));
+std::unique_ptr<Network> Network::createNetwork(const std::filesystem::path& filename, Interface interface_, std::optional<size_t> seed) {
+    return std::unique_ptr<Network>(new Network(getParameters(filename), interface_, seed));
 }
 
 // TODO: Better handle back ups
@@ -62,7 +76,7 @@ void Network::switchInterface() {
 // TODO: consider just adding to the batched queue if already inputted
 // TODO: return error codes
 // Input vector to set input node layer
-void Network::input(const vector<double>& input) {
+void Network::input(const std::vector<double>& input) {
 
     if (state == State::Inputted) {
         std::cerr << "Network::input - Already inputted, use batched inputs for multiple inputs.";

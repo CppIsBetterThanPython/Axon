@@ -82,11 +82,11 @@ class NetworkBackProp :
     std::optional<NetworkBackPropCPU*> backPropCPUinterface;
     //std::optional<NetworkBackPropGPU*> backPropGPUinterface;
 
-    NetworkBackProp(const Parameters& parameters, const Interface interface_ = Interface::CPU);
+    NetworkBackProp(const Parameters& parameters, const Interface interface_ = Interface::CPU, std::optional<size_t> seed = defaultSeed);
 public:
-    static std::unique_ptr<NetworkBackProp> createNetwork(const Parameters& parameters, Interface interface_ = Interface::CPU);
-    static std::unique_ptr<NetworkBackProp> createNetwork(const std::vector<size_t>& Structure, Interface interface_ = Interface::CPU);
-    static std::unique_ptr<NetworkBackProp> createNetwork(const std::filesystem::path& filename, Interface interface_ = Interface::CPU);
+    static std::unique_ptr<NetworkBackProp> createNetwork(const Parameters& parameters,          Interface interface_ = Interface::CPU, std::optional<size_t> seed = defaultSeed);
+    static std::unique_ptr<NetworkBackProp> createNetwork(const std::vector<size_t>& Structure,  Interface interface_ = Interface::CPU, std::optional<size_t> seed = defaultSeed);
+    static std::unique_ptr<NetworkBackProp> createNetwork(const std::filesystem::path& filename, Interface interface_ = Interface::CPU, std::optional<size_t> seed = defaultSeed);
 
     TestResult TestSet(const std::vector<Test>& testSet) override;
     TestResult TrainSet(const std::vector<Test>& testSet, double learningRate) override;

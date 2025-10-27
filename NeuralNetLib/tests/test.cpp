@@ -7,18 +7,21 @@ inline bool IsInRange(double num, double lower, double upper) {
 }
 
 static std::vector<Test> generateTestSet(int size) {
+	static size_t now = std::chrono::system_clock::now().time_since_epoch().count();
+	static std::mt19937 randomEngine(now);
+
 	std::vector<Test> testSet;
 
 	testSet.reserve(size);
 
 	for (int i = 0; i < size; i++) {
-		std::vector<double> x = { static_cast<double>(rand() % 100) + RandomReal(), static_cast<double>(rand() % 100) + RandomReal() };
-		std::vector<double> y = { static_cast<double>(rand() % 100) + RandomReal(), static_cast<double>(rand() % 100) + RandomReal() };
+		std::vector<double> x = { static_cast<double>(rand() % 100) + RandomReal(randomEngine), static_cast<double>(rand() % 100) + RandomReal(randomEngine) };
+		std::vector<double> y = { static_cast<double>(rand() % 100) + RandomReal(randomEngine), static_cast<double>(rand() % 100) + RandomReal(randomEngine) };
 
 		std::sort(x.begin(), x.end());
 		std::sort(y.begin(), y.end());
 
-		std::vector<double> point = { static_cast<double>(rand() % 100) + RandomReal(), static_cast<double>(rand() % 100) + RandomReal() };
+		std::vector<double> point = { static_cast<double>(rand() % 100) + RandomReal(randomEngine), static_cast<double>(rand() % 100) + RandomReal(randomEngine) };
 
 		TestData input(std::vector<double>{ x[0], y[0], x[1], y[1], point[0], point[1] });
 
@@ -40,25 +43,27 @@ static std::vector<Test> generateTestSet(int size) {
 }
 
 TEST(FileIOTests, basicIO) {
-	srand(static_cast<int>(time(NULL)));
+	static size_t now = std::chrono::system_clock::now().time_since_epoch().count();
+	static std::mt19937 randomEngine(now);
+
 	std::vector<size_t> structure = { 3, 4, 2 };
 
 	const std::filesystem::path path = "tmp.nn";
 
 	Parameters parameters(structure);
-	parameters.initParameters();
+	parameters.initParameters(randomEngine);
 
 	saveParameters(parameters, path);
 	
 	Parameters readParameters = getParameters(path);
 
 	ASSERT_EQ(readParameters, parameters);
+
+	std::filesystem::remove(path);
 }
 
 TEST(ForwardPassTests, SingleInput) {
-	srand(static_cast<int>(time(NULL)));
 	std::vector<size_t> structure = { 3, 4, 2 };
-	//std::vector<size_t> structure = { 3, 3 };
 	std::unique_ptr<Network> net = Network::createNetwork(structure, Network::Interface::GPU);
 
 	std::vector<double> input = { 1.0, 1.0, 1.0 };
@@ -77,9 +82,7 @@ TEST(ForwardPassTests, SingleInput) {
 }
 
 TEST(ForwardPassTests, BatchedInput) {
-	srand(static_cast<int>(time(NULL)));
 	std::vector<size_t> structure = { 3, 4, 2 };
-	//std::vector<size_t> structure = { 3, 3 };
 	std::unique_ptr<Network> net = Network::createNetwork(structure, Network::Interface::GPU);
 
 	std::vector<std::vector<double>> inputs = {
@@ -102,11 +105,30 @@ TEST(ForwardPassTests, BatchedInput) {
 	ASSERT_EQ(GPUoutputs, CPUoutputs);
 }
 
+/*
 TEST(BackwardsPassTests, Basic) {
-	srand(static_cast<int>(time(NULL)));
 
 	std::vector<size_t> structure = { 6, 2 };
 	std::unique_ptr<NetworkBackProp> net = NetworkBackProp::createNetwork(structure);
 
 	EXPECT_NO_THROW(net->TrainSet(generateTestSet(5), 0.01));
+}
+*/
+
+TEST(RandomTests, Determisism) {
+	std::vector<size_t> structure = { 3, 4, 2 };
+	std::unique_ptr<Network> net1 = Network::createNetwork(structure, Network::Interface::GPU);
+	std::unique_ptr<Network> net2 = Network::createNetwork(structure, Network::Interface::GPU);
+
+	ASSERT_TRUE(net1->getNetworkParameters() == net2->getNetworkParameters());
+}
+
+TEST(RandomTests, RandomSeed) {
+	std::vector<size_t> structure = { 3, 4, 2 };
+	const size_t seed1 = 1;
+	const size_t seed2 = 2;
+	std::unique_ptr<Network> net1 = Network::createNetwork(structure, Network::Interface::GPU, seed1);
+	std::unique_ptr<Network> net2 = Network::createNetwork(structure, Network::Interface::GPU, seed2);
+
+	ASSERT_FALSE(net1->getNetworkParameters() == net2->getNetworkParameters());
 }

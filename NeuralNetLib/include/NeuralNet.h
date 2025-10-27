@@ -5,12 +5,16 @@
 
 #include "utils.h"
 
+// TODO: Move to it's own file
+// TODO: possibly store seed
 // TODO: Dynamically split the 1d vector
 // Structure to store basic parameters of the network
 struct Parameters {
 private:
     std::vector<double> weightsData;
     std::vector<double> biasesData;
+    
+    bool isInitialised;
 public:
     std::vector<std::vector<std::span<double>>> weights;
     std::vector<std::span<double>> biases;
@@ -22,6 +26,8 @@ public:
     friend Parameters getParameters(const std::filesystem::path& filePath);
 
     Parameters(std::vector<size_t> structure) {
+        isInitialised = false;
+
         // TODO: Use std::accumulate
         size = structure.size() - 1;
         this->structure = structure;
@@ -59,7 +65,8 @@ public:
         : weightsData(std::move(other.weightsData)),
         biasesData(std::move(other.biasesData)),
         structure(std::move(other.structure)),
-        size(std::move(other.size)) {
+        size(std::move(other.size)),
+        isInitialised(std::move(other.isInitialised)) {
 
         moveSpans();
     }
@@ -68,7 +75,8 @@ public:
         : weightsData(other.weightsData),
         biasesData(other.biasesData),
         structure(other.structure),
-        size(other.size) {
+        size(other.size),
+        isInitialised(other.isInitialised) {
 
         moveSpans();
     }
@@ -81,21 +89,27 @@ public:
         biasesData = other.biasesData;
         structure = other.structure;
         size = other.size;
+        isInitialised = other.isInitialised;
 
         moveSpans();
 
         return *this;
     }
 
-    void initParameters() {
+    template<typename T>
+    void initParameters(T& randomEngine) {
         for (size_t layerID = 0; layerID < size; layerID++)
             for (std::span<double>& node : weights[layerID])
                 for (double& weight : node)
-                    weight = XavierInitialization(structure[layerID], structure[layerID + 1]);
+                    weight = XavierInitialization(structure[layerID], structure[layerID + 1], randomEngine);
 
         for (double& bias : biasesData)
             bias = 0.1;
+
+        isInitialised = true;
     }
+
+    bool getIsInitialised() const { return isInitialised; }
 
     // TODO: Evaluate if clear is neccessary
     void moveSpans() {
@@ -315,6 +329,9 @@ public:
     enum class State { Ready, Inputted, Calculated };
     enum class InputType { Singular, Batched };
 protected:
+    std::mt19937 randomEngine;
+    size_t seed;
+
     Parameters parameters;
 
     // Unique pointer is for polymorphism for other network types.
@@ -326,24 +343,30 @@ protected:
     InputType inputType;
 
     // initParameters is to defer initialisation to derived classes to avoid initialising twice.
-    Network(const Parameters& parameters, Interface interface_ = Interface::GPU, bool initParameters = true);
+    Network(const Parameters& parameters, Interface interface_ = Interface::GPU, std::optional<size_t> seed = defaultSeed, bool initParameters = true);
+
 public:
-    static std::unique_ptr<Network> createNetwork(const Parameters& parameters, Interface interface_ = Interface::GPU);
-    static std::unique_ptr<Network> createNetwork(const std::vector<size_t>& Structure, Interface interface_ = Interface::GPU);
-    static std::unique_ptr<Network> createNetwork(const std::filesystem::path& filename, Interface interface_ = Interface::GPU);
+    static std::unique_ptr<Network> createNetwork(const Parameters& parameters, Interface interface_ = Interface::GPU, std::optional<size_t> seed = defaultSeed);
+    static std::unique_ptr<Network> createNetwork(const std::vector<size_t>& Structure, Interface interface_ = Interface::GPU, std::optional<size_t> seed = defaultSeed);
+    static std::unique_ptr<Network> createNetwork(const std::filesystem::path& filename, Interface interface_ = Interface::GPU, std::optional<size_t> seed = defaultSeed);
 
     virtual void switchInterface();
 
     ~Network ();
-
-    virtual bool saveNetwork ( const std::filesystem::path & filename ) const;
-    virtual bool loadNetwork ( const std::filesystem::path & filename );
 
     void input(const std::vector<std::vector<double>>&);
     void input (const std::vector<double>& input ) override;
     void calculate () override;
     std::vector<double> getAnswerVector() override;
     std::vector<std::vector<double>> getAnswerVectors() override;
+
+    virtual bool saveNetwork(const std::filesystem::path& filename) const;
+    virtual bool loadNetwork(const std::filesystem::path& filename);
+
+    size_t getSeed() { return seed; }
+
+    // This is for testing mainly
+    const Parameters& getNetworkParameters() { return parameters; }
 };
 
 Parameters getParameters(const std::filesystem::path& filePath);
