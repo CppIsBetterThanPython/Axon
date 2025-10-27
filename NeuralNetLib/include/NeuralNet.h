@@ -6,7 +6,6 @@
 #include "utils.h"
 
 // TODO: Dynamically split the 1d vector
-// TODO: Add == operator
 // Structure to store basic parameters of the network
 struct Parameters {
 private:
@@ -211,11 +210,11 @@ public:
     virtual void input(const std::vector<std::vector<double>>&) = 0;
     virtual void input(const std::vector<double>& input) = 0;
     virtual void calculate() = 0;
-    virtual std::vector<double> getAnswerVector() const = 0;
-    virtual std::vector<std::vector<double>> getAnswerVectors() const = 0;
+    virtual std::vector<double> getAnswerVector() = 0;
+    virtual std::vector<std::vector<double>> getAnswerVectors() = 0;
 
     // Gets strongest node
-    virtual size_t getAnswer() const {
+    virtual size_t getAnswer() {
         std::vector<double> answer = getAnswerVector();
         return getLargestID( answer );
     }
@@ -257,8 +256,8 @@ private:
     void calculatePass();
 public:
 
-    std::vector<double> getAnswerVector() const override;
-    std::vector<std::vector<double>> getAnswerVectors() const override;
+    std::vector<double> getAnswerVector() override;
+    std::vector<std::vector<double>> getAnswerVectors() override;
 };
 
 class NetworkGPU : public NetworkBase {
@@ -283,8 +282,8 @@ public:
     void input(const std::vector<std::vector<double>>&) override;
     void input(const std::vector<double>&) override;
     void calculate() override;
-    std::vector<double> getAnswerVector() const override;
-    std::vector<std::vector<double>> getAnswerVectors() const override;
+    std::vector<double> getAnswerVector() override;
+    std::vector<std::vector<double>> getAnswerVectors() override;
 
     void loadBuffers();
     void saveBuffers();
@@ -309,15 +308,22 @@ public:
 };
 
 // TODO: Add enum state and limit what functions can be called based on state.
+// TODO: Add a optimising option, which allows for the class to decide when to use which interface.
 class Network : public NetworkBase {
 public:
     enum class Interface { CPU, GPU };
+    enum class State { Ready, Inputted, Calculated };
+    enum class InputType { Singular, Batched };
 protected:
     Parameters parameters;
+
     // Unique pointer is for polymorphism for other network types.
     std::optional<std::unique_ptr<NetworkCPU>> cpuInterface;
     std::optional<std::unique_ptr<NetworkGPU>> gpuInterface;
+
     Interface interface_;
+    State state;
+    InputType inputType;
 
     // initParameters is to defer initialisation to derived classes to avoid initialising twice.
     Network(const Parameters& parameters, Interface interface_ = Interface::GPU, bool initParameters = true);
@@ -330,14 +336,14 @@ public:
 
     ~Network ();
 
-    bool saveNetwork ( const std::filesystem::path & filename ) const;
-    bool loadNetwork ( const std::filesystem::path & filename );
+    virtual bool saveNetwork ( const std::filesystem::path & filename ) const;
+    virtual bool loadNetwork ( const std::filesystem::path & filename );
 
     void input(const std::vector<std::vector<double>>&);
     void input (const std::vector<double>& input ) override;
     void calculate () override;
-    std::vector<double> getAnswerVector() const override;
-    std::vector<std::vector<double>> getAnswerVectors() const;
+    std::vector<double> getAnswerVector() override;
+    std::vector<std::vector<double>> getAnswerVectors() override;
 };
 
 Parameters getParameters(const std::filesystem::path& filePath);

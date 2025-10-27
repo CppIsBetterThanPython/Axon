@@ -80,13 +80,13 @@ void NetworkCPU::calculatePass() {
     }
 }
 
-std::vector<double> NetworkCPU::getAnswerVector() const {
+std::vector<double> NetworkCPU::getAnswerVector() {
     std::vector<double> answerVector(nodeData.back().begin(), nodeData.back().end());
 
     return answerVector;
 }
 
-std::vector<std::vector<double>> NetworkCPU::getAnswerVectors() const {
+std::vector<std::vector<double>> NetworkCPU::getAnswerVectors() {
 
     return batchedOutputs;
 }

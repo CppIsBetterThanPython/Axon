@@ -9,6 +9,9 @@ using std::vector, std::tuple;
 Network::Network(const Parameters& parameters, Interface interface_, bool initParameters)
     : NetworkBase(parameters.structure), parameters(parameters) {
 
+    state = State::Ready;
+    inputType = InputType::Singular;
+
     this->interface_ = interface_;
     if (initParameters) {
         if (interface_ == Interface::GPU) {
@@ -56,61 +59,142 @@ void Network::switchInterface() {
     }
 }
 
+// TODO: consider just adding to the batched queue if already inputted
+// TODO: return error codes
 // Input vector to set input node layer
 void Network::input(const vector<double>& input) {
 
-    if (interface_ == Interface::GPU) {
-        if (gpuInterface) {
-            gpuInterface.value()->input(input);
-            return;
-        }
-        std::cerr << "Had to fall Back to CPU." << std::endl;
+    if (state == State::Inputted) {
+        std::cerr << "Network::input - Already inputted, use batched inputs for multiple inputs.";
+        return;
     }
-    else {
+    else if (state == State::Calculated) {
+        std::cerr << "Network::input - Already calculated, please retrieve output first.";
+        return;
+    }
+
+    switch (interface_) {
+    case (Interface::GPU):
+        gpuInterface.value()->input(input);
+        break;
+    case (Interface::CPU):
         cpuInterface.value()->input(input);
+        break;
     }
-}
 
-// TODO: Do a quick calculation to check if CPU or GPU will be faster
-// Passes data through layers
-void Network::calculate() {
-    if (interface_ == Interface::GPU) {
-        if (gpuInterface) {
-            gpuInterface.value()->calculate();
-            return;
-        }
-        std::cerr << "Had to fall Back to CPU." << std::endl;
-    }
-    cpuInterface.value()->calculate();
-}
-
-// Gets the output layer
-vector<double> Network::getAnswerVector() const {
-    if (interface_ == Interface::GPU) {
-        if (gpuInterface) {
-            return gpuInterface.value()->getAnswerVector();
-        }
-        std::cerr << "Had to fall Back to CPU." << std::endl;
-    }
-    return cpuInterface.value()->getAnswerVector();
+    state = State::Inputted;
+    inputType = InputType::Singular;
 }
 
 void Network::input(const std::vector<std::vector<double>>& input) {
-    if (interface_ == Interface::GPU) {
-        if (gpuInterface) {
-            return gpuInterface.value()->input(input);
-        }
-        std::cerr << "Had to fall Back to CPU." << std::endl;
+
+    if (state == State::Inputted) {
+        std::cerr << "Network::input - Already inputted, use batched inputs for multiple inputs.";
+        return;
     }
-    return cpuInterface.value()->input(input);
+    else if (state == State::Calculated) {
+        std::cerr << "Network::input - Already calculated, please retrieve output first.";
+        return;
+    }
+
+    switch (interface_) {
+    case (Interface::GPU):
+        gpuInterface.value()->input(input);
+        break;
+    case (Interface::CPU):
+        cpuInterface.value()->input(input);
+        break;
+    }
+
+    state = State::Inputted;
+    inputType = InputType::Batched;
 }
 
-std::vector<std::vector<double>> Network::getAnswerVectors() const {
-    if (interface_ == Interface::GPU) {
-        if (gpuInterface) {
-            return gpuInterface.value()->getAnswerVectors();
-        }
-        std::cerr << "Had to fall Back to CPU." << std::endl;
+// TODO: Do a quick calculation to check if CPU or GPU will be faster
+void Network::calculate() {
+
+    if (state == State::Calculated) {
+        std::cerr << "Network::calculate - Already calculated.";
+        return;
     }
-    return cpuInterface.value()->getAnswerVectors();
+    else if (state == State::Ready) {
+        std::cerr << "Network::calculate - No input, please give an input first.";
+        return;
+    }
+
+    switch (interface_) {
+    case (Interface::GPU):
+        gpuInterface.value()->calculate();
+        break;
+    case (Interface::CPU):
+        cpuInterface.value()->calculate();
+        break;
+    }
+
+    state = State::Calculated;
+}
+
+// Gets the output layer
+std::vector<double> Network::getAnswerVector() {
+
+    if (state == State::Ready) {
+        std::cerr << "Network::getAnswerVector - Please input and calculate first.";
+        return {};
+    }
+    else if (state == State::Inputted) {
+        std::cerr << "Network::getAnswerVector - Please calculate first.";
+        return {};
+    }
+
+    if (inputType == InputType::Batched) {
+        std::cerr << "Network::getAnswerVector - Incorrect input type, please use \"Network::getAnswerVectors\" instead for retrieving batched inputs";
+        return {};
+    }
+
+    std::vector<double> output;
+
+    switch (interface_) {
+    case (Interface::GPU):
+        output = gpuInterface.value()->getAnswerVector();
+        break;
+    case (Interface::CPU):
+        output = cpuInterface.value()->getAnswerVector();
+        break;
+    }
+
+    state = State::Ready;
+
+    return output;
+}
+
+std::vector<std::vector<double>> Network::getAnswerVectors() {
+
+    if (state == State::Ready) {
+        std::cerr << "Network::getAnswerVector - Please input and calculate first.";
+        return {};
+    }
+    else if (state == State::Inputted) {
+        std::cerr << "Network::getAnswerVector - Please calculate first.";
+        return {};
+    }
+
+    if (inputType == InputType::Singular) {
+        std::cerr << "Network::getAnswerVector - Incorrect input type, please use \"Network::getAnswerVector\" instead for retrieving singular inputs";
+        return {};
+    }
+
+    std::vector<std::vector<double>> output;
+
+    switch (interface_) {
+    case (Interface::GPU):
+        output = gpuInterface.value()->getAnswerVectors();
+        break;
+    case (Interface::CPU):
+        output = cpuInterface.value()->getAnswerVectors();
+        break;
+    }
+
+    state = State::Ready;
+
+    return output;
 }

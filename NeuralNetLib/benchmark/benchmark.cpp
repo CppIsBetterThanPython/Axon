@@ -3,7 +3,7 @@
 
 static void BM_CalculateGPU(benchmark::State& state) {
 	std::vector<size_t> structure = { 1000, 1000, 1000, 1000, 1000 };
-	Network net = Network::createNetwork(structure, Network::Interface::GPU);
+	std::unique_ptr<Network> net = Network::createNetwork(structure, Network::Interface::GPU);
 
 	std::vector<std::vector<double>> input = {};
 	input.reserve(1000);
@@ -28,23 +28,23 @@ static void BM_CalculateGPU(benchmark::State& state) {
 				input[i].push_back(RandomReal());
 			}
 		}
-		net.input(input);
+		net->input(input);
 		state.ResumeTiming();
 
-		net.calculate();
+		net->calculate();
 	}
 }
 
 static void BM_CalculateCPU(benchmark::State& state) {
 	std::vector<size_t> structure = { 1000, 1000, 1000, 1000, 1000 };
-	Network net = Network::createNetwork(structure, Network::Interface::CPU);
+	std::unique_ptr<Network> net = Network::createNetwork(structure, Network::Interface::CPU);
 
 	std::vector<double> input;
 	input.reserve(structure[0]);
 	for (int i = 0; i < structure[0]; i++) {
 		input.push_back(RandomReal());
 	}
-	net.input(input);
+	net->input(input);
 
 	for (auto _ : state) {
 		for (size_t i = 0; i < 1000; i++) {
@@ -52,10 +52,10 @@ static void BM_CalculateCPU(benchmark::State& state) {
 			for (int i = 0; i < structure[0]; i++) {
 				input[i] = RandomReal();
 			}
-			net.input(input);
+			net->input(input);
 			state.ResumeTiming();
 
-			net.calculate();
+			net->calculate();
 		}
 	}
 }
