@@ -1,6 +1,3 @@
-#include <cstdlib> // For random numbers
-#include <ctime>   // So is this
-
 #include "NeuralNet.h"
 #include "GPU.h"
 
@@ -61,13 +58,11 @@ void Network::switchInterface() {
 
     if (interface_ == Interface::GPU) {
         cpuInterface = std::make_unique<NetworkCPU>(this->parameters);
-        gpuInterface.reset();
 
         interface_ = Interface::CPU;
     }
     else {
         gpuInterface = std::make_unique<NetworkGPU>(this->parameters);
-        cpuInterface.reset();
 
         interface_ = Interface::GPU;
     }

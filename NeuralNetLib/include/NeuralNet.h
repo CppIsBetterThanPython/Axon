@@ -4,8 +4,8 @@
 #include <optional>
 
 #include "utils.h"
+#include "pch.h"
 
-// TODO: Move to it's own file
 // TODO: possibly store seed
 // TODO: Dynamically split the 1d vector
 // Structure to store basic parameters of the network
@@ -25,76 +25,11 @@ public:
 
     friend Parameters getParameters(const std::filesystem::path& filePath);
 
-    Parameters(std::vector<size_t> structure) {
-        isInitialised = false;
+    Parameters(std::vector<size_t> structure);
+    Parameters(Parameters&& other) noexcept;
+    Parameters(const Parameters& other);
 
-        // TODO: Use std::accumulate
-        size = structure.size() - 1;
-        this->structure = structure;
-        size_t weightsSize = 0;
-        size_t biasesSize = 0;
-        for (size_t i = 0; i < size; i++) {
-            weightsSize += structure[i] * structure[i + 1];
-            biasesSize += structure[i + 1];
-        }
-        weightsData = std::vector<double>(weightsSize);
-        biasesData = std::vector<double>(biasesSize);
-
-        weights.reserve(size);
-        biases.reserve(size);
-
-        size_t currentBiasIndexStart = 0;
-        size_t currentWeightIndexStart = 0;
-        for (size_t layerID = 0; layerID < size; layerID++) {
-            const size_t prevLayerSize = structure[layerID];
-            const size_t currentLayerSize = structure[layerID + 1];
-            
-            weights.push_back(std::vector<std::span<double>>(currentLayerSize));
-            biases.push_back(std::span<double>(&biasesData[currentBiasIndexStart], currentLayerSize));
-            for (std::span<double>& node : weights[layerID]) {
-                node = std::span<double>(&weightsData[currentWeightIndexStart], prevLayerSize);
-
-                currentWeightIndexStart += prevLayerSize;
-            }
-
-            currentBiasIndexStart += currentLayerSize;
-        }
-    }
-
-    Parameters(Parameters&& other) noexcept
-        : weightsData(std::move(other.weightsData)),
-        biasesData(std::move(other.biasesData)),
-        structure(std::move(other.structure)),
-        size(std::move(other.size)),
-        isInitialised(std::move(other.isInitialised)) {
-
-        moveSpans();
-    }
-
-    Parameters(const Parameters& other)
-        : weightsData(other.weightsData),
-        biasesData(other.biasesData),
-        structure(other.structure),
-        size(other.size),
-        isInitialised(other.isInitialised) {
-
-        moveSpans();
-    }
-
-    Parameters& operator=(const Parameters& other) {
-        if (this == &other)
-            return *this;
-
-        weightsData = other.weightsData;
-        biasesData = other.biasesData;
-        structure = other.structure;
-        size = other.size;
-        isInitialised = other.isInitialised;
-
-        moveSpans();
-
-        return *this;
-    }
+    Parameters& operator=(const Parameters& other);
 
     template<typename T>
     void initParameters(T& randomEngine) {
@@ -111,72 +46,17 @@ public:
 
     bool getIsInitialised() const { return isInitialised; }
 
-    // TODO: Evaluate if clear is neccessary
-    void moveSpans() {
-        weights.clear();
-        biases.clear();
+    void moveSpans();
 
-        weights.reserve(size);
-        biases.reserve(size);
-
-        size_t currentBiasIndexStart = 0;
-        size_t currentWeightIndexStart = 0;
-        for (size_t layerID = 0; layerID < size; layerID++) {
-            const size_t prevLayerSize = structure[layerID];
-            const size_t currentLayerSize = structure[layerID + 1];
-
-            weights.push_back(std::vector<std::span<double>>(currentLayerSize));
-            biases.push_back(std::span<double>(&biasesData[currentBiasIndexStart], currentLayerSize));
-            for (std::span<double>& node : weights[layerID]) {
-                node = std::span<double>(&weightsData[currentWeightIndexStart], prevLayerSize);
-
-                currentWeightIndexStart += prevLayerSize;
-            }
-
-            currentBiasIndexStart += currentLayerSize;
-        }
-    }
-
-    Parameters operator+(Parameters other) const {
-        if (other.structure != structure)
-            throw std::invalid_argument("class Parameters: Parameters addition is only valid for parameters of the same structure.");
-
-        Parameters added = Parameters(structure);
-
-        for (int i = 0; i < weightsData.size(); i++) {
-            added.weightsData[i] = this->weightsData[i] + other.weightsData[i];
-        }
-
-        for (int i = 0; i < biasesData.size(); i++) {
-            added.biasesData[i] = this->biasesData[i] + other.biasesData[i];
-        }
-
-        return added;
-    }
-
-    Parameters operator-(Parameters other) const {
-        if (other.structure != structure)
-            throw std::invalid_argument("class Parameters: Parameters addition is only valid for parameters of the same structure.");
-
-        Parameters subtracted = Parameters(structure);
-
-        for (int i = 0; i < weightsData.size(); i++) {
-            subtracted.weightsData[i] = this->weightsData[i] - other.weightsData[i];
-        }
-
-        for (int i = 0; i < biasesData.size(); i++) {
-            subtracted.biasesData[i] = this->biasesData[i] - other.biasesData[i];
-        }
-
-        return subtracted;
-    }
+    Parameters operator+(Parameters other) const;
+    Parameters operator-(Parameters other) const;
 
     template<typename T>
     Parameters operator*(T scalar) const {
         Parameters scaled = Parameters(structure);
 
         for (int i = 0; i < weightsData.size(); i++) {
-            scaled.weightsData[i] = this->weightsData[i] *  scalar;
+            scaled.weightsData[i] = this->weightsData[i] * scalar;
         }
 
         for (int i = 0; i < biasesData.size(); i++) {
@@ -200,16 +80,7 @@ public:
 
         return scaled;
     }
-
-    bool operator==(const Parameters& other) const {
-        if (other.structure != structure)
-            return false;
-
-        if (other.weightsData != weightsData || other.biasesData != biasesData)
-            return false;
-
-        return true;
-    }
+    bool operator==(const Parameters& other) const;
 };
 
 class NetworkBase {
@@ -224,6 +95,7 @@ public:
     virtual void input(const std::vector<std::vector<double>>&) = 0;
     virtual void input(const std::vector<double>& input) = 0;
     virtual void calculate() = 0;
+    // TODO: Make these no discard
     virtual std::vector<double> getAnswerVector() = 0;
     virtual std::vector<std::vector<double>> getAnswerVectors() = 0;
 
@@ -236,12 +108,12 @@ public:
     // Gets if the network correctly guessed
     virtual bool isAnswerCorrect(const std::vector<double>& expectedAnswers) { return (getLargestID(expectedAnswers) == getAnswer()); }
 
-    inline const size_t& size()            const { return netSize;           }
-    inline const size_t& inputLayerSize()  const { return structure.front(); }
-    inline const size_t& outputLayerSize() const { return structure.back();  }
+    inline size_t size()            const { return netSize;           }
+    inline size_t inputLayerSize()  const { return structure.front(); }
+    inline size_t outputLayerSize() const { return structure.back();  }
 
-    inline const std::vector<size_t>& getStructure()             const { return structure;        }
-    inline const size_t&              getStructure(size_t index) const { return structure[index]; }
+    inline const std::vector<size_t>& getStructure()      const { return structure; }
+    inline size_t getStructure(size_t index) const { return structure[index]; }
 };
 
 class GPU;
@@ -363,7 +235,7 @@ public:
     virtual bool saveNetwork(const std::filesystem::path& filename) const;
     virtual bool loadNetwork(const std::filesystem::path& filename);
 
-    size_t getSeed() { return seed; }
+    size_t getSeed() const { return seed; }
 
     // This is for testing mainly
     const Parameters& getNetworkParameters() { return parameters; }
