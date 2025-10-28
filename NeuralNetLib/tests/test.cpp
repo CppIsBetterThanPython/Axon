@@ -57,7 +57,7 @@ TEST(FileIOTests, basicIO) {
 	
 	Parameters readParameters = getParameters(path);
 
-	ASSERT_EQ(readParameters, parameters);
+	ASSERT_TRUE(readParameters == parameters);
 
 	std::filesystem::remove(path);
 }
