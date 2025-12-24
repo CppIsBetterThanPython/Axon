@@ -35,7 +35,7 @@ static void BM_CalculateGPU(benchmark::State& state) {
 		}
 		net->input(input);
 		state.ResumeTiming();
-
+		
 		net->calculate();
 
 		net->getAnswerVectors();

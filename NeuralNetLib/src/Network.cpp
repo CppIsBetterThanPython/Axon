@@ -51,6 +51,8 @@ std::unique_ptr<Network> Network::createNetwork(const std::filesystem::path& fil
 }
 
 // TODO: Better handle back ups
+// DO NOT REMOVE
+// This is not useless, the compiler can't make a destructor for NetworkGPU when the gpu class isnt fully defined.
 Network::~Network() {};
 
 

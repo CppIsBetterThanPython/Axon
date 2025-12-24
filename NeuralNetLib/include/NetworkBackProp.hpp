@@ -24,6 +24,8 @@ public:
     static std::unique_ptr<NetworkBackProp> createNetwork(const std::vector<size_t>& Structure,  Interface interface_ = Interface::CPU, std::optional<size_t> seed = defaultSeed);
     static std::unique_ptr<NetworkBackProp> createNetwork(const std::filesystem::path& filename, Interface interface_ = Interface::CPU, std::optional<size_t> seed = defaultSeed);
 
+    void switchInterface() override;
+
     TestResult TestSet(const std::vector<Test>& testSet) override;
     TestResult TrainSet(const std::vector<Test>& testSet, double learningRate) override;
 };

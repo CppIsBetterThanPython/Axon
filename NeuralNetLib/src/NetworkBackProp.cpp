@@ -29,6 +29,26 @@ std::unique_ptr<NetworkBackProp> NetworkBackProp::createNetwork(const std::files
     return std::unique_ptr<NetworkBackProp>(new NetworkBackProp(getParameters(filename), interface_, seed));
 }
 
+void NetworkBackProp::switchInterface() {
+
+    switch (interface_)
+    {
+    case Interface::CPU:
+        if (cpuInterface)
+            return;
+
+        cpuInterface = std::make_unique<NetworkBackPropCPU>(this->parameters);
+        backPropCPUinterface = dynamic_cast<NetworkBackPropCPU*>(cpuInterface.value().get());
+
+        break;
+    case Interface::GPU:
+        // gpuInterface = std::make_unique<NetworkBackPropGPU>(this->parameters);
+        // backPropGPUinterface = dynamic_cast<NetworkBackPropGPU*>(gpuInterface.value().get());
+
+        break;
+    }
+}
+
 TestResult NetworkBackProp::TrainSet(const vector<Test>& testSet, double learningRate) {
     return backPropCPUinterface.value()->TrainSet(testSet, learningRate);
 }

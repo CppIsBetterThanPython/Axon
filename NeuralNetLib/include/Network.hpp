@@ -12,9 +12,12 @@
 // This is not meant to be used by itself.
 class NetworkGPU;
 
+// Forward declaration of CPU interface class that is managed internally.
+// This is not meant to be used by itself.
 class NetworkCPU;
 
-// TODO: Add a optimising option, which allows for the class to decide when to use which interface.
+// TODO: Add an optimising option, which allows for the class to decide when to use which interface.
+// TODO: Maybe force the Network to only own one interface, but in that case i would have to somehow cache other interfaces when testing which is fastest at the start
 class Network : public NetworkBase {
 public:
     enum class Interface { CPU, GPU };
@@ -42,9 +45,9 @@ public:
     static std::unique_ptr<Network> createNetwork(const std::vector<size_t>& Structure, Interface interface_ = Interface::GPU, std::optional<size_t> seed = defaultSeed);
     static std::unique_ptr<Network> createNetwork(const std::filesystem::path& filename, Interface interface_ = Interface::GPU, std::optional<size_t> seed = defaultSeed);
 
-    virtual void switchInterface();
+    ~Network();
 
-    ~Network ();
+    virtual void switchInterface();
 
     void input(const std::vector<std::vector<double>>&);
     void input (const std::vector<double>& input ) override;
