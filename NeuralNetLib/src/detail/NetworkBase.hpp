@@ -2,37 +2,41 @@
 
 #include "pch.h"
 
-// Abstract interface for passforward network interfaces
-class NetworkBase {
-    std::vector<size_t> structure;
-    size_t netSize;
-public:
+namespace axon {
 
-    NetworkBase(const std::vector<size_t>& structure) : structure(structure) {
-        netSize = structure.size();
-    }
+    // Abstract interface for passforward network interfaces
+    class NetworkBase {
+        std::vector<size_t> structure;
+        size_t netSize;
+    public:
 
-    virtual ~NetworkBase() = default;
+        NetworkBase(const std::vector<size_t>& structure) : structure(structure) {
+            netSize = structure.size();
+        }
 
-    virtual void input(const std::vector<std::vector<double>>&) = 0;
-    virtual void input(const std::vector<double>& input) = 0;
-    virtual void calculate() = 0;
-    [[nodiscard]] virtual std::vector<double> getAnswerVector() const = 0;
-    [[nodiscard]] virtual std::vector<std::vector<double>> getAnswerVectors() const = 0;
+        virtual ~NetworkBase() = default;
 
-    // Gets strongest node
-    virtual size_t getAnswer() const {
-        std::vector<double> answer = getAnswerVector();
-        return getLargestID(answer);
-    }
+        virtual void input(const std::vector<std::vector<double>>&) = 0;
+        virtual void input(const std::vector<double>& input) = 0;
+        virtual void calculate() = 0;
+        [[nodiscard]] virtual std::vector<double> getAnswerVector() const = 0;
+        [[nodiscard]] virtual std::vector<std::vector<double>> getAnswerVectors() const = 0;
 
-    // Gets if the network correctly guessed
-    virtual bool isAnswerCorrect(const std::vector<double>& expectedAnswers) { return (getLargestID(expectedAnswers) == getAnswer()); }
+        // Gets strongest node
+        virtual size_t getAnswer() const {
+            std::vector<double> answer = getAnswerVector();
+            return getLargestID(answer);
+        }
 
-    inline size_t size()            const { return netSize; }
-    inline size_t inputLayerSize()  const { return structure.front(); }
-    inline size_t outputLayerSize() const { return structure.back(); }
+        // Gets if the network correctly guessed
+        virtual bool isAnswerCorrect(const std::vector<double>& expectedAnswers) { return (getLargestID(expectedAnswers) == getAnswer()); }
 
-    inline const std::vector<size_t>& getStructure()      const { return structure; }
-    inline size_t getStructure(size_t index) const { return structure[index]; }
-};
+        inline size_t size()            const { return netSize; }
+        inline size_t inputLayerSize()  const { return structure.front(); }
+        inline size_t outputLayerSize() const { return structure.back(); }
+
+        inline const std::vector<size_t>& getStructure()      const { return structure; }
+        inline size_t getStructure(size_t index) const { return structure[index]; }
+    };
+
+}

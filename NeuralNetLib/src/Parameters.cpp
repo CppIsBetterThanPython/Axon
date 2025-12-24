@@ -1,5 +1,7 @@
 #include "Network.hpp"
 
+namespace axon {
+
 Parameters::Parameters(std::vector<size_t> structure) {
     isInitialised = false;
 
@@ -139,4 +141,6 @@ bool Parameters::operator==(const Parameters& other) const {
         return false;
 
     return true;
+}
+
 }

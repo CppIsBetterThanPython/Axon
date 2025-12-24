@@ -2,8 +2,10 @@
 
 #include "NetworkCPU.hpp"
 
+namespace axon {
+
 NetworkCPU::NetworkCPU(Parameters& parameters) : NetworkBase(parameters.structure), parameters(parameters) {
-    
+
     size_t nodeDataSize = std::accumulate(getStructure().begin(), getStructure().end(), 0);
     nodeDataRaw = std::vector<double>(nodeDataSize, 0);
 
@@ -91,4 +93,6 @@ std::vector<double> NetworkCPU::getAnswerVector() const {
 std::vector<std::vector<double>> NetworkCPU::getAnswerVectors() const {
 
     return batchedOutputs;
+}
+
 }

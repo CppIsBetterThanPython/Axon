@@ -2,6 +2,8 @@
 
 using std::vector, std::tuple;
 
+namespace axon {
+
 double NetworkBackPropCPU::getCost(vector<double> expectedAnswers) {
     if (expectedAnswers.size() != getStructure().back()) {
         throw std::out_of_range("More answers than expected");
@@ -70,7 +72,7 @@ double NetworkBackPropCPU::getWeightGradient(double nextLayerNodeGradient, size_
 }
 
 double NetworkBackPropCPU::getBiasGradient(double nextLayerNodeGradient, size_t layerPos, size_t nodePos) {
-    
+
     double data = nodeData[layerPos][nodePos];
 
     // daj
@@ -205,4 +207,6 @@ TestResult NetworkBackPropCPU::TestSet(const vector<Test>& testSet) {
 // Removes gradient from the weights and biases
 void NetworkBackPropCPU::alterByGradient(const Parameters& averageGradient, double learningRate) {
     parameters = parameters - averageGradient * learningRate;
+}
+
 }

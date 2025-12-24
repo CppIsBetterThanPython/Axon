@@ -5,8 +5,7 @@
 using std::vector;
 using namespace std::filesystem;
 
-// TODO: Better error handling
-// TODO: Make saving cleaner and more abstract
+namespace axon {
 
 static bool isValid(path filePath) {
 	if (filePath.extension() != ".nn") {
@@ -14,7 +13,7 @@ static bool isValid(path filePath) {
 		return 1;
 	}
 
-	else if(!exists(filePath)) {
+	else if (!exists(filePath)) {
 		std::cerr << "Error: File not found!" << std::endl;
 		return 1;
 	}
@@ -22,7 +21,7 @@ static bool isValid(path filePath) {
 	return 0;
 }
 
-bool saveParameters(const Parameters& parameters, const path & filePath) {
+bool saveParameters(const Parameters& parameters, const path& filePath) {
 
 	if (filePath.extension() != ".nn") {
 		return 1;
@@ -135,4 +134,6 @@ bool Network::saveNetwork(const std::filesystem::path& filename) const {
 	saveParameters(parameters, filename);
 
 	return 0;
+}
+
 }

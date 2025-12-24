@@ -2,6 +2,8 @@
 #include "NetworkGPU.hpp"
 #include "NetworkCPU.hpp"
 
+namespace axon {
+
 Network::Network(const Parameters& parameters, Interface interface_, std::optional<size_t> seed, bool initParameters)
     : NetworkBase(parameters.structure),
     parameters(parameters) {
@@ -209,4 +211,6 @@ std::vector<std::vector<double>> Network::getAnswerVectors() const {
     state = State::Ready;
 
     return output;
+}
+
 }

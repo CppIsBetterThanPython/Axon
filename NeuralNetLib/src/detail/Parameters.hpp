@@ -2,81 +2,85 @@
 
 #include "pch.h"
 
-// TODO: Possibly store seed
-// TODO: Dynamically split the 1d vector
-// TODO: Store the activation and output function
-// 
-// Structure to store basic parameters of the network
-struct Parameters {
-private:
-    std::vector<double> weightsData;
-    std::vector<double> biasesData;
+namespace axon {
 
-    bool isInitialised;
-public:
-    std::vector<std::vector<std::span<double>>> weights;
-    std::vector<std::span<double>> biases;
-    size_t size;
-    std::vector<size_t> structure;
+    // TODO: Possibly store seed
+    // TODO: Dynamically split the 1d vector
+    // TODO: Store the activation and output function
+    // 
+    // Structure to store basic parameters of the network
+    struct Parameters {
+    private:
+        std::vector<double> weightsData;
+        std::vector<double> biasesData;
 
-    friend bool saveParameters(const Parameters& parameters, const std::filesystem::path& filePath);
+        bool isInitialised;
+    public:
+        std::vector<std::vector<std::span<double>>> weights;
+        std::vector<std::span<double>> biases;
+        size_t size;
+        std::vector<size_t> structure;
 
-    friend Parameters getParameters(const std::filesystem::path& filePath);
+        friend bool saveParameters(const Parameters& parameters, const std::filesystem::path& filePath);
 
-    Parameters(std::vector<size_t> structure);
-    Parameters(Parameters&& other) noexcept;
-    Parameters(const Parameters& other);
+        friend Parameters getParameters(const std::filesystem::path& filePath);
 
-    Parameters& operator=(const Parameters& other);
+        Parameters(std::vector<size_t> structure);
+        Parameters(Parameters&& other) noexcept;
+        Parameters(const Parameters& other);
 
-    template<typename T>
-    void initParameters(T& randomEngine) {
-        for (size_t layerID = 0; layerID < size; layerID++)
-            for (std::span<double>& node : weights[layerID])
-                for (double& weight : node)
-                    weight = XavierInitialization(structure[layerID], structure[layerID + 1], randomEngine);
+        Parameters& operator=(const Parameters& other);
 
-        for (double& bias : biasesData)
-            bias = 0.1;
+        template<typename T>
+        void initParameters(T& randomEngine) {
+            for (size_t layerID = 0; layerID < size; layerID++)
+                for (std::span<double>& node : weights[layerID])
+                    for (double& weight : node)
+                        weight = XavierInitialization(structure[layerID], structure[layerID + 1], randomEngine);
 
-        isInitialised = true;
-    }
+            for (double& bias : biasesData)
+                bias = 0.1;
 
-    bool getIsInitialised() const { return isInitialised; }
-
-    void moveSpans();
-
-    Parameters operator+(Parameters other) const;
-    Parameters operator-(Parameters other) const;
-
-    template<typename T>
-    Parameters operator*(T scalar) const {
-        Parameters scaled = Parameters(structure);
-
-        for (int i = 0; i < weightsData.size(); i++) {
-            scaled.weightsData[i] = this->weightsData[i] * scalar;
+            isInitialised = true;
         }
 
-        for (int i = 0; i < biasesData.size(); i++) {
-            scaled.biasesData[i] = this->biasesData[i] * scalar;
+        bool getIsInitialised() const { return isInitialised; }
+
+        void moveSpans();
+
+        Parameters operator+(Parameters other) const;
+        Parameters operator-(Parameters other) const;
+
+        template<typename T>
+        Parameters operator*(T scalar) const {
+            Parameters scaled = Parameters(structure);
+
+            for (int i = 0; i < weightsData.size(); i++) {
+                scaled.weightsData[i] = this->weightsData[i] * scalar;
+            }
+
+            for (int i = 0; i < biasesData.size(); i++) {
+                scaled.biasesData[i] = this->biasesData[i] * scalar;
+            }
+
+            return scaled;
         }
 
-        return scaled;
-    }
+        template<typename T>
+        Parameters operator/(T scalar) const {
+            Parameters scaled = Parameters(structure);
 
-    template<typename T>
-    Parameters operator/(T scalar) const {
-        Parameters scaled = Parameters(structure);
+            for (int i = 0; i < weightsData.size(); i++) {
+                scaled.weightsData[i] = this->weightsData[i] / scalar;
+            }
 
-        for (int i = 0; i < weightsData.size(); i++) {
-            scaled.weightsData[i] = this->weightsData[i] / scalar;
+            for (int i = 0; i < biasesData.size(); i++) {
+                scaled.biasesData[i] = this->biasesData[i] / scalar;
+            }
+
+            return scaled;
         }
+        bool operator==(const Parameters& other) const;
+    };
 
-        for (int i = 0; i < biasesData.size(); i++) {
-            scaled.biasesData[i] = this->biasesData[i] / scalar;
-        }
-
-        return scaled;
-    }
-    bool operator==(const Parameters& other) const;
-};
+}

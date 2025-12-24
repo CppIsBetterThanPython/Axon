@@ -2,6 +2,8 @@
 
 using std::vector, std::tuple;
 
+namespace axon {
+
 // Avoid initialised the interfaces twice
 NetworkBackProp::NetworkBackProp(const Parameters& parameters, const Interface interface_, const std::optional<size_t> seed) : Network(parameters, interface_, seed, false) {
 
@@ -55,4 +57,6 @@ TestResult NetworkBackProp::TrainSet(const vector<Test>& testSet, double learnin
 
 TestResult NetworkBackProp::TestSet(const vector<Test>& testSet) {
     return backPropCPUinterface.value()->TestSet(testSet);
+}
+
 }

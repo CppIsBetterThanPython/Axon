@@ -5,56 +5,60 @@
 #include "Parameters.hpp"
 #include "NetworkBase.hpp"
 
-class GPU;
-
 namespace cl {
     class Buffer;
 }
 
-// Interface for networks with GPU, never exists on its own
-class NetworkGPU : public NetworkBase {
-protected:
-    std::vector<std::unique_ptr<cl::Buffer>> WeightBuffers;
-    std::vector<std::unique_ptr<cl::Buffer>> BiasBuffers;
+class GPU;
 
-    size_t batchSize = 1;
+namespace axon {
 
-    std::unique_ptr<cl::Buffer> inputBuffer;
-    std::unique_ptr<cl::Buffer> outputBuffer;
+    // Interface for networks with GPU, never exists on its own
+    class NetworkGPU : public NetworkBase {
+    protected:
+        std::vector<std::unique_ptr<cl::Buffer>> WeightBuffers;
+        std::vector<std::unique_ptr<cl::Buffer>> BiasBuffers;
 
-    std::unique_ptr<GPU> gpu;
+        size_t batchSize = 1;
 
-    Parameters& parameters;
-public:
+        std::unique_ptr<cl::Buffer> inputBuffer;
+        std::unique_ptr<cl::Buffer> outputBuffer;
 
-    NetworkGPU(Parameters& parameters);
+        std::unique_ptr<GPU> gpu;
 
-    ~NetworkGPU();
+        Parameters& parameters;
+    public:
 
-    void input(const std::vector<std::vector<double>>&) override;
-    void input(const std::vector<double>&) override;
-    void calculate() override;
-    [[nodiscard]] std::vector<double> getAnswerVector() const override;
-    [[nodiscard]] std::vector<std::vector<double>> getAnswerVectors() const override;
+        NetworkGPU(Parameters& parameters);
 
-    void loadBuffers();
-    void saveBuffers();
+        ~NetworkGPU();
 
-    inline size_t largestLayer() const {
-        size_t curLargestLayer = 0;
+        void input(const std::vector<std::vector<double>>&) override;
+        void input(const std::vector<double>&) override;
+        void calculate() override;
+        [[nodiscard]] std::vector<double> getAnswerVector() const override;
+        [[nodiscard]] std::vector<std::vector<double>> getAnswerVectors() const override;
 
-        for (size_t i = 0; i < size(); i++)
-            curLargestLayer = std::max(curLargestLayer, getStructure(i));
+        void loadBuffers();
+        void saveBuffers();
 
-        return curLargestLayer;
-    }
+        inline size_t largestLayer() const {
+            size_t curLargestLayer = 0;
 
-    inline size_t largestPassLayer() const {
-        size_t curLargestLayer = 0;
+            for (size_t i = 0; i < size(); i++)
+                curLargestLayer = std::max(curLargestLayer, getStructure(i));
 
-        for (size_t i = 1; i < size(); i++)
-            curLargestLayer = std::max(curLargestLayer, getStructure(i));
+            return curLargestLayer;
+        }
 
-        return curLargestLayer;
-    }
-};
+        inline size_t largestPassLayer() const {
+            size_t curLargestLayer = 0;
+
+            for (size_t i = 1; i < size(); i++)
+                curLargestLayer = std::max(curLargestLayer, getStructure(i));
+
+            return curLargestLayer;
+        }
+    };
+
+}

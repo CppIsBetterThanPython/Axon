@@ -3,6 +3,8 @@
 #include "NetworkGPU.hpp"
 #include "GPU.hpp"
 
+namespace axon {
+
 NetworkGPU::NetworkGPU(Parameters& parameters) : NetworkBase(parameters.structure), parameters(parameters) {
 	gpu = std::make_unique<GPU>();
 
@@ -43,7 +45,7 @@ void NetworkGPU::input(const std::vector<std::vector<double>>& input) {
 				" but got:" + std::to_string(batch.size()));
 
 	std::vector<double> extendedInput(largestLayer() * input.size(), 0);
-	
+
 	for (size_t i = 0; i < input.size(); i++)
 		std::copy(input[i].begin(), input[i].end(), &extendedInput[inputLayerSize() * i]);
 
@@ -75,14 +77,14 @@ static void calculateLayer(
 			__global double* biases,
 			__global double* nodes,
 			ulong prevNodesSize) {
-	
+
 		int id = get_global_id(0);
 		nodes[id] = 0.0;
 		for (int i = 0; i < prevNodesSize; i++) {
 			nodes[id] += weights[id * prevNodesSize + i] * prevNodes[i];
 		}
 		nodes[id] += biases[id];
-	
+
 		nodes[id] = 1.0 / (1.0 + exp(-nodes[id]));
 	}
 	)CLC";
@@ -140,28 +142,28 @@ static void calculateLayer(
 ) {
 
 	const char* kernelSource = R"CLC(
-	#pragma OPENCL EXTENSION cl_khr_fp64 : enablei
-	__kernel void calculateLayer(
-			__global double* prevNodes,
-			__global double* weights,
-			__global double* biases,
-			__global double* nodes,
-			ulong prevNodesSize,
-			ulong curNodeSize) {
+#pragma OPENCL EXTENSION cl_khr_fp64 : enablei
+__kernel void calculateLayer(
+		__global double* prevNodes,
+		__global double* weights,
+		__global double* biases,
+		__global double* nodes,
+		ulong prevNodesSize,
+		ulong curNodeSize) {
 	
-		int neuronID = get_global_id(0);
-		int batchID = get_global_id(1);
+	int neuronID = get_global_id(0);
+	int batchID = get_global_id(1);
 
-		nodes[batchID * curNodeSize + neuronID] = 0.0;
-		for (int i = 0; i < prevNodesSize; i++) {
-			nodes[batchID * curNodeSize + neuronID] += weights[neuronID * prevNodesSize + i] * prevNodes[batchID * prevNodesSize + i];
-		}
-		nodes[batchID * curNodeSize + neuronID] += biases[neuronID];
-		
-		// Sigmoid function
-		nodes[batchID * curNodeSize + neuronID] = 1.0 / (1.0 + exp(-nodes[batchID * curNodeSize + neuronID]));
+	nodes[batchID * curNodeSize + neuronID] = 0.0;
+	for (int i = 0; i < prevNodesSize; i++) {
+		nodes[batchID * curNodeSize + neuronID] += weights[neuronID * prevNodesSize + i] * prevNodes[batchID * prevNodesSize + i];
 	}
-	)CLC";
+	nodes[batchID * curNodeSize + neuronID] += biases[neuronID];
+		
+	// Sigmoid function
+	nodes[batchID * curNodeSize + neuronID] = 1.0 / (1.0 + exp(-nodes[batchID * curNodeSize + neuronID]));
+}
+)CLC";
 
 	gpu.BuildKernel("calculateLayer", kernelSource);
 
@@ -259,4 +261,6 @@ void NetworkGPU::saveBuffers() {
 		WeightBuffers.push_back(std::make_unique<cl::Buffer>(weightBuffer));
 		BiasBuffers.push_back(std::make_unique<cl::Buffer>(biasBuffer));
 	}
+}
+
 }

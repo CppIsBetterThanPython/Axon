@@ -1,42 +1,46 @@
 #pragma once
 
-struct TestData {
-    std::vector<double> values = {};
-    explicit TestData(const std::vector<double>& values) : values(values) {}
-    explicit TestData(std::vector<double>&& values) : values(std::move(values)) {}
+namespace axon {
 
-    double& operator[](size_t i) { return values[i]; }
-    const double operator[](size_t i) const { return values[i]; }
+    struct TestData {
+        std::vector<double> values = {};
+        explicit TestData(const std::vector<double>& values) : values(values) {}
+        explicit TestData(std::vector<double>&& values) : values(std::move(values)) {}
 
-    const size_t size() const { return values.size(); }
-};
+        double& operator[](size_t i) { return values[i]; }
+        const double operator[](size_t i) const { return values[i]; }
 
-struct Answer {
-    std::vector<double> values = {};
-    explicit Answer(const std::vector<double>& values) : values(values) {}
-    explicit Answer(std::vector<double>&& values) : values(std::move(values)) {}
+        const size_t size() const { return values.size(); }
+    };
 
-    double& operator[](size_t i) { return values[i]; }
-    const double operator[](size_t i) const { return values[i]; }
+    struct Answer {
+        std::vector<double> values = {};
+        explicit Answer(const std::vector<double>& values) : values(values) {}
+        explicit Answer(std::vector<double>&& values) : values(std::move(values)) {}
 
-    const size_t size() const { return values.size(); }
-};
+        double& operator[](size_t i) { return values[i]; }
+        const double operator[](size_t i) const { return values[i]; }
 
-struct Test {
-    TestData input;
-    Answer expected;
+        const size_t size() const { return values.size(); }
+    };
 
-    explicit Test(const TestData& data, const Answer& answer) : input(data), expected(answer) {}
-    explicit Test(TestData&& data, Answer&& answer) : input(std::move(data)), expected(std::move(answer)) {}
-};
+    struct Test {
+        TestData input;
+        Answer expected;
 
-struct TestResult {
-    double cost;
-    double accuracy;
-};
+        explicit Test(const TestData& data, const Answer& answer) : input(data), expected(answer) {}
+        explicit Test(TestData&& data, Answer&& answer) : input(std::move(data)), expected(std::move(answer)) {}
+    };
 
-class NetworkBackPropBase {
+    struct TestResult {
+        double cost;
+        double accuracy;
+    };
 
-    virtual TestResult TestSet(const std::vector<Test>& testSet) = 0;
-    virtual TestResult TrainSet(const std::vector<Test>& testSet, double learningRate) = 0;
-};
+    class NetworkBackPropBase {
+
+        virtual TestResult TestSet(const std::vector<Test>& testSet) = 0;
+        virtual TestResult TrainSet(const std::vector<Test>& testSet, double learningRate) = 0;
+    };
+
+}

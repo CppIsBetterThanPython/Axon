@@ -5,28 +5,32 @@
 #include "Parameters.hpp"
 #include "NetworkBase.hpp"
 
-// Interface for networks with CPU, never exists on its own
-class NetworkCPU : public NetworkBase {
-protected:
-    // Reference to paramaters stored in Network hyperclass, NetworkCPU is contained within Network, the reference is never invalidated
-    Parameters& parameters;
-    std::vector<double> nodeDataRaw;
-    std::vector<std::span<double>> nodeData;
+namespace axon {
 
-    std::vector<std::vector<double>> batchedInputs;
-    std::vector<std::vector<double>> batchedOutputs;
-public:
+    // Interface for networks with CPU, never exists on its own
+    class NetworkCPU : public NetworkBase {
+    protected:
+        // Reference to paramaters stored in Network hyperclass, NetworkCPU is contained within Network, the reference is never invalidated
+        Parameters& parameters;
+        std::vector<double> nodeDataRaw;
+        std::vector<std::span<double>> nodeData;
 
-    NetworkCPU(Parameters& parameters);
+        std::vector<std::vector<double>> batchedInputs;
+        std::vector<std::vector<double>> batchedOutputs;
+    public:
 
-    void input(const std::vector<std::vector<double>>&) override;
-    void input(const std::vector<double>&) override;
+        NetworkCPU(Parameters& parameters);
 
-    void calculate() override;
-private:
-    void calculatePass();
-public:
+        void input(const std::vector<std::vector<double>>&) override;
+        void input(const std::vector<double>&) override;
 
-    [[nodiscard]] std::vector<double> getAnswerVector() const override;
-    [[nodiscard]] std::vector<std::vector<double>> getAnswerVectors() const override;
-};
+        void calculate() override;
+    private:
+        void calculatePass();
+    public:
+
+        [[nodiscard]] std::vector<double> getAnswerVector() const override;
+        [[nodiscard]] std::vector<std::vector<double>> getAnswerVectors() const override;
+    };
+
+}

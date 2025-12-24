@@ -8,7 +8,7 @@ static void BM_CalculateGPU(benchmark::State& state) {
 	static std::mt19937 randomEngine(seed);
 
 	std::vector<size_t> structure = { 1000, 1000, 1000, 1000, 1000 };
-	std::unique_ptr<Network> net = Network::createNetwork(structure, Network::Interface::GPU);
+	std::unique_ptr<axon::Network> net = axon::Network::createNetwork(structure, axon::Network::Interface::GPU);
 
 	std::vector<std::vector<double>> input = {};
 	input.reserve(1000);
@@ -47,7 +47,7 @@ static void BM_CalculateCPU(benchmark::State& state) {
 	static std::mt19937 randomEngine(seed);
 
 	std::vector<size_t> structure = { 1000, 1000, 1000, 1000, 1000 };
-	std::unique_ptr<Network> net = Network::createNetwork(structure, Network::Interface::CPU);
+	std::unique_ptr<axon::Network> net = axon::Network::createNetwork(structure, axon::Network::Interface::CPU);
 
 	std::vector<double> input;
 	input.reserve(structure[0]);
