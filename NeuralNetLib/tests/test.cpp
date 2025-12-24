@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "NetworkBackProp.h"
+#include "NetworkBackProp.hpp"
 
 inline bool IsInRange(double num, double lower, double upper) {
 	return (num >= lower && num <= upper);
@@ -105,15 +105,15 @@ TEST(ForwardPassTests, BatchedInput) {
 	ASSERT_EQ(GPUoutputs, CPUoutputs);
 }
 
-/*
 TEST(BackwardsPassTests, Basic) {
 
 	std::vector<size_t> structure = { 6, 2 };
 	std::unique_ptr<NetworkBackProp> net = NetworkBackProp::createNetwork(structure);
 
 	EXPECT_NO_THROW(net->TrainSet(generateTestSet(5), 0.01));
+
+	net.reset();
 }
-*/
 
 TEST(RandomTests, Determisism) {
 	std::vector<size_t> structure = { 3, 4, 2 };

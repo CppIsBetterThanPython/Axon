@@ -1,4 +1,4 @@
-#include "NetworkBackProp.h"
+#include "NetworkBackPropCPU.hpp"
 
 using std::vector, std::tuple;
 

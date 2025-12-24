@@ -1,4 +1,6 @@
-#include "NeuralNet.h"
+#include "pch.h"
+
+#include "NetworkCPU.hpp"
 
 NetworkCPU::NetworkCPU(Parameters& parameters) : NetworkBase(parameters.structure), parameters(parameters) {
     
@@ -80,13 +82,13 @@ void NetworkCPU::calculatePass() {
     }
 }
 
-std::vector<double> NetworkCPU::getAnswerVector() {
+std::vector<double> NetworkCPU::getAnswerVector() const {
     std::vector<double> answerVector(nodeData.back().begin(), nodeData.back().end());
 
     return answerVector;
 }
 
-std::vector<std::vector<double>> NetworkCPU::getAnswerVectors() {
+std::vector<std::vector<double>> NetworkCPU::getAnswerVectors() const {
 
     return batchedOutputs;
 }

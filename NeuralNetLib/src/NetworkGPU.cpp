@@ -1,5 +1,7 @@
-#include "NeuralNet.h"
-#include "GPU.h"
+#include "pch.h"
+
+#include "NetworkGPU.hpp"
+#include "GPU.hpp"
 
 NetworkGPU::NetworkGPU(Parameters& parameters) : NetworkBase(parameters.structure), parameters(parameters) {
 	gpu = std::make_unique<GPU>();
@@ -219,7 +221,7 @@ void NetworkGPU::calculate() {
 	//gpu->queue.enqueueReadBuffer(*prevLayerBuffer, CL_TRUE, 0, sizeof(double) * (*this)[size() - 1].nodeData.size(), (*this)[size() - 1].nodeData.data());
 }
 
-std::vector<double> NetworkGPU::getAnswerVector() {
+std::vector<double> NetworkGPU::getAnswerVector() const {
 	std::vector<double> answerVector(outputLayerSize());
 
 	gpu->queue.enqueueReadBuffer(*outputBuffer, CL_TRUE, 0, sizeof(double) * outputLayerSize(), answerVector.data());
@@ -227,7 +229,7 @@ std::vector<double> NetworkGPU::getAnswerVector() {
 	return answerVector;
 }
 
-std::vector<std::vector<double>> NetworkGPU::getAnswerVectors() {
+std::vector<std::vector<double>> NetworkGPU::getAnswerVectors() const {
 	std::vector<double> answerVector(outputLayerSize() * batchSize);
 
 	std::vector<std::vector<double>> answers;

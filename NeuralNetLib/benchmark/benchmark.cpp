@@ -1,5 +1,5 @@
 #include <benchmark/benchmark.h>
-#include "NeuralNet.h"
+#include "Network.hpp"
 
 constexpr size_t seed = 100;
 

@@ -1,5 +1,6 @@
-#include "NeuralNet.h"
-#include "GPU.h"
+#include "Network.hpp"
+#include "NetworkGPU.hpp"
+#include "NetworkCPU.hpp"
 
 Network::Network(const Parameters& parameters, Interface interface_, std::optional<size_t> seed, bool initParameters)
     : NetworkBase(parameters.structure),
@@ -144,7 +145,7 @@ void Network::calculate() {
 }
 
 // Gets the output layer
-std::vector<double> Network::getAnswerVector() {
+std::vector<double> Network::getAnswerVector() const {
 
     if (state == State::Ready) {
         std::cerr << "Network::getAnswerVector - Please input and calculate first.";
@@ -176,7 +177,7 @@ std::vector<double> Network::getAnswerVector() {
     return output;
 }
 
-std::vector<std::vector<double>> Network::getAnswerVectors() {
+std::vector<std::vector<double>> Network::getAnswerVectors() const {
 
     if (state == State::Ready) {
         std::cerr << "Network::getAnswerVector - Please input and calculate first.";

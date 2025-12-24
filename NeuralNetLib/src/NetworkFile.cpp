@@ -1,6 +1,6 @@
 #include <fstream>
 
-#include "NeuralNet.h"
+#include "Network.hpp"
 
 using std::vector;
 using namespace std::filesystem;

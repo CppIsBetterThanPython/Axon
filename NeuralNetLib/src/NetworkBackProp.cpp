@@ -1,4 +1,4 @@
-#include "NetworkBackProp.h"
+#include "NetworkBackProp.hpp"
 
 using std::vector, std::tuple;
 

@@ -1,4 +1,4 @@
-#include "NeuralNet.h"
+#include "Network.hpp"
 
 Parameters::Parameters(std::vector<size_t> structure) {
     isInitialised = false;
