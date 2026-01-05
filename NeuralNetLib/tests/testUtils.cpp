@@ -1,12 +1,10 @@
-/*
-
 #include <gtest/gtest.h>
 
-#include "utils.h"
+#include "../src/detail/utils.hpp"
 
-constexpr double epsilon = 1e-16
+constexpr double epsilon = 1e-16;
 
-TEST(SigmoidTest, Zero check) {
+TEST(SigmoidTest, ZeroCheck) {
 	double input = 0.0;
 
 	double expected = 0.5;
@@ -27,19 +25,19 @@ TEST(FlattenVectorTests, Normal) {
 
 	std::vector<int> output = flattenVector(nested);
 
-	EXPECT_EQ(output, expected)
+	EXPECT_EQ(output, expected);
 }
 
 TEST(FlattenVectorTests, Array) {
-	std::vector<std::array<double>> nested = {
+	std::vector<std::array<double, 3>> nested = {
 		{0.5, 0.6, 0.7},
-		{0.1},
-		{0.2, 0.2}
+		{0.1, 0.4, 0.9},
+		{0.2, 0.2, 0.3}
 	};
 
-	std::vector<double> expected = { 0.5, 0.6, 0.7 , 0.1, 0.2, 0.2 };
+	std::vector<double> expected = { 0.5, 0.6, 0.7, 0.1, 0.4, 0.9, 0.2, 0.2, 0.3 };
 
-	std::vector<double> output = fattenVector(nested);
+	std::vector<double> output = flattenVector(nested);
 
 	EXPECT_EQ(output, expected);
 }
@@ -57,10 +55,9 @@ TEST(GetLargestIDTests, Normal) {
 TEST(GetLargestIDTests, Chars) {
 	std::vector<char> vec = { 'a', 'c', 'b', 's', 'z'};
 
-	size_t expected = 3;
+	size_t expected = 4;
 
 	size_t output = getLargestID(vec);
 
 	EXPECT_EQ(output, expected);
 }
-*/

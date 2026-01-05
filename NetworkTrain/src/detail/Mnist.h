@@ -1,7 +1,7 @@
 #pragma once
 
-#include "NetworkBackProp.h"
+#include "NetworkBackProp.hpp"
 
-std::vector<Test> getTestSet();
+std::vector<axon::Test> getTestSet();
 
-std::vector<Test> getTrainSet();
+std::vector<axon::Test> getTrainSet();

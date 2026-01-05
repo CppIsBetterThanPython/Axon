@@ -1,9 +1,13 @@
 #include <benchmark/benchmark.h>
-#include "NeuralNet.h"
+#include "Network.hpp"
+
+constexpr size_t seed = 100;
 
 static void BM_CalculateGPU(benchmark::State& state) {
+	static std::mt19937 randomEngine(seed);
+
 	std::vector<size_t> structure = { 1000, 1000, 1000, 1000, 1000 };
-	Network net = Network::createNetwork(structure, Network::Interface::GPU);
+	std::unique_ptr<axon::Network> net = axon::Network::createNetwork(structure, axon::Network::Interface::GPU);
 
 	std::vector<std::vector<double>> input = {};
 	input.reserve(1000);
@@ -12,12 +16,14 @@ static void BM_CalculateGPU(benchmark::State& state) {
 		input[i].reserve(structure[0]);
 
 		for (int j = 0; j < structure[0]; j++) {
-			input[i].push_back(RandomReal());
+			input[i].push_back(RandomReal(randomEngine));
 		}
 	}
 
 	for (auto _ : state) {
+
 		state.PauseTiming();
+
 		std::vector<std::vector<double>> input = {};
 		input.reserve(1000);
 		for (size_t i = 0; i < 1000; i++) {
@@ -25,37 +31,43 @@ static void BM_CalculateGPU(benchmark::State& state) {
 			input[i].reserve(structure[0]);
 
 			for (int j = 0; j < structure[0]; j++) {
-				input[i].push_back(RandomReal());
+				input[i].push_back(RandomReal(randomEngine));
 			}
 		}
-		net.input(input);
-		state.ResumeTiming();
+		net->input(input);
 
-		net.calculate();
+		state.ResumeTiming();
+		
+		net->calculate();
+
+		net->getAnswerVectors();
 	}
 }
 
 static void BM_CalculateCPU(benchmark::State& state) {
+	static std::mt19937 randomEngine(seed);
+
 	std::vector<size_t> structure = { 1000, 1000, 1000, 1000, 1000 };
-	Network net = Network::createNetwork(structure, Network::Interface::CPU);
+	std::unique_ptr<axon::Network> net = axon::Network::createNetwork(structure, axon::Network::Interface::CPU);
 
 	std::vector<double> input;
 	input.reserve(structure[0]);
 	for (int i = 0; i < structure[0]; i++) {
-		input.push_back(RandomReal());
+		input.push_back(RandomReal(randomEngine));
 	}
-	net.input(input);
 
 	for (auto _ : state) {
 		for (size_t i = 0; i < 1000; i++) {
 			state.PauseTiming();
 			for (int i = 0; i < structure[0]; i++) {
-				input[i] = RandomReal();
+				input[i] = RandomReal(randomEngine);
 			}
-			net.input(input);
+			net->input(input);
 			state.ResumeTiming();
 
-			net.calculate();
+			net->calculate();
+
+			net->getAnswerVector();
 		}
 	}
 }

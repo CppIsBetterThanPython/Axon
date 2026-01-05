@@ -1,5 +1,9 @@
-#include "NeuralNet.h"
-#include "GPU.h"
+#include "pch.h"
+
+#include "NetworkGPU.hpp"
+#include "GPU.hpp"
+
+namespace axon {
 
 NetworkGPU::NetworkGPU(Parameters& parameters) : NetworkBase(parameters.structure), parameters(parameters) {
 	gpu = std::make_unique<GPU>();
@@ -11,7 +15,6 @@ NetworkGPU::NetworkGPU(Parameters& parameters) : NetworkBase(parameters.structur
 
 NetworkGPU::~NetworkGPU() = default;
 
-// TODO: disallow input after calculate
 void NetworkGPU::input(const std::vector<double>& input) {
 	if (input.size() != inputLayerSize())
 		throw std::invalid_argument("NetworkGPU::input: Input size does not match input layer size. Expected: " + std::to_string(inputLayerSize()) +
@@ -37,11 +40,13 @@ void NetworkGPU::input(const std::vector<std::vector<double>>& input) {
 
 	for (const std::vector<double>& batch : input)
 		if (batch.size() != inputLayerSize())
+			// TODO: convert into an error code
 			throw std::invalid_argument("NetworkGPU::input: Input size does not match input layer size. Expected: " + std::to_string(inputLayerSize()) +
 				" but got:" + std::to_string(batch.size()));
 
+	// TODO: Try to only innit once
 	std::vector<double> extendedInput(largestLayer() * input.size(), 0);
-	
+
 	for (size_t i = 0; i < input.size(); i++)
 		std::copy(input[i].begin(), input[i].end(), &extendedInput[inputLayerSize() * i]);
 
@@ -73,14 +78,14 @@ static void calculateLayer(
 			__global double* biases,
 			__global double* nodes,
 			ulong prevNodesSize) {
-	
+
 		int id = get_global_id(0);
 		nodes[id] = 0.0;
 		for (int i = 0; i < prevNodesSize; i++) {
 			nodes[id] += weights[id * prevNodesSize + i] * prevNodes[i];
 		}
 		nodes[id] += biases[id];
-	
+
 		nodes[id] = 1.0 / (1.0 + exp(-nodes[id]));
 	}
 	)CLC";
@@ -126,6 +131,7 @@ void NetworkGPU::calculate() {
 	outputBuffer = std::make_unique<cl::Buffer>(*prevLayerBuffer);
 } */
 
+// TODO: Make it float
 static void calculateLayer(
 	GPU& gpu,
 	const cl::Buffer& prevNodes,
@@ -137,29 +143,29 @@ static void calculateLayer(
 	size_t batchSize
 ) {
 
-	const char* kernelSource = R"CLC(
-	#pragma OPENCL EXTENSION cl_khr_fp64 : enablei
-	__kernel void calculateLayer(
-			__global double* prevNodes,
-			__global double* weights,
-			__global double* biases,
-			__global double* nodes,
-			ulong prevNodesSize,
-			ulong curNodeSize) {
+	static constexpr char* kernelSource = R"CLC(
+#pragma OPENCL EXTENSION cl_khr_fp64 : enablei
+__kernel void calculateLayer(
+		__global double* nodeGradients,
+		__global double* weights,
+		__global double* biases,
+		__global double* nodes,
+		ulong prevNodesSize,
+		ulong curNodeSize) {
 	
-		int neuronID = get_global_id(0);
-		int batchID = get_global_id(1);
+	int neuronID = get_global_id(0);
+	int batchID = get_global_id(1);
 
-		nodes[batchID * curNodeSize + neuronID] = 0.0;
-		for (int i = 0; i < prevNodesSize; i++) {
-			nodes[batchID * curNodeSize + neuronID] += weights[neuronID * prevNodesSize + i] * prevNodes[batchID * prevNodesSize + i];
-		}
-		nodes[batchID * curNodeSize + neuronID] += biases[neuronID];
-		
-		// Sigmoid function
-		nodes[batchID * curNodeSize + neuronID] = 1.0 / (1.0 + exp(-nodes[batchID * curNodeSize + neuronID]));
+	nodes[batchID * curNodeSize + neuronID] = 0.0;
+	for (int i = 0; i < prevNodesSize; i++) {
+		nodes[batchID * curNodeSize + neuronID] += weights[neuronID * prevNodesSize + i] * prevNodes[batchID * prevNodesSize + i];
 	}
-	)CLC";
+	nodes[batchID * curNodeSize + neuronID] += biases[neuronID];
+		
+	// Sigmoid function
+	nodes[batchID * curNodeSize + neuronID] = 1.0 / (1.0 + exp(-nodes[batchID * curNodeSize + neuronID]));
+}
+)CLC";
 
 	gpu.BuildKernel("calculateLayer", kernelSource);
 
@@ -177,6 +183,7 @@ static void calculateLayer(
 	gpu.queue.finish();
 }
 
+// TODO: Manage the memory allocation of buffers to not
 void NetworkGPU::calculate() {
 	if (!inputBuffer)
 		throw std::invalid_argument("NetworkGPU::calculate: Must have input.");
@@ -215,8 +222,6 @@ void NetworkGPU::calculate() {
 	}
 
 	outputBuffer = std::make_unique<cl::Buffer>(*prevLayerBuffer);
-	// TODO: move this
-	//gpu->queue.enqueueReadBuffer(*prevLayerBuffer, CL_TRUE, 0, sizeof(double) * (*this)[size() - 1].nodeData.size(), (*this)[size() - 1].nodeData.data());
 }
 
 std::vector<double> NetworkGPU::getAnswerVector() const {
@@ -248,6 +253,7 @@ void NetworkGPU::saveBuffers() {
 	BiasBuffers.reserve(size());
 
 	for (size_t i = 0; i < parameters.size; i++) {
+		// TODO: Just use weightsData
 		std::vector<double> layerWeights = flattenVector(parameters.weights[i]);
 		std::vector<double> layerBiases(parameters.biases[i].begin(), parameters.biases[i].end());
 
@@ -257,4 +263,6 @@ void NetworkGPU::saveBuffers() {
 		WeightBuffers.push_back(std::make_unique<cl::Buffer>(weightBuffer));
 		BiasBuffers.push_back(std::make_unique<cl::Buffer>(biasBuffer));
 	}
+}
+
 }

@@ -8,7 +8,7 @@
 #include <fstream>
 #include <cstdlib>
 
-#include "NetworkBackProp.h"
+#include "NetworkBackProp.hpp"
 #include "Mnist.h"
 
 using std::vector;

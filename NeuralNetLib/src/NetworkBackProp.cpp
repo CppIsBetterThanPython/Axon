@@ -1,9 +1,11 @@
-#include "NetworkBackProp.h"
+#include "NetworkBackProp.hpp"
 
 using std::vector, std::tuple;
 
+namespace axon {
+
 // Avoid initialised the interfaces twice
-NetworkBackProp::NetworkBackProp(const Parameters& parameters, const Interface interface_) : Network(parameters, interface_, false) {
+NetworkBackProp::NetworkBackProp(const Parameters& parameters, const Interface interface_, const std::optional<size_t> seed) : Network(parameters, interface_, seed, false) {
 
     if (interface_ == Interface::GPU) {
         // gpuInterface = std::make_unique<NetworkBackPropGPU>(this->parameters);
@@ -15,19 +17,40 @@ NetworkBackProp::NetworkBackProp(const Parameters& parameters, const Interface i
     }
 }
 
-std::unique_ptr<NetworkBackProp> NetworkBackProp::createNetwork(const Parameters& parameters, Interface interface_) {
-    return std::unique_ptr<NetworkBackProp>(new NetworkBackProp(parameters, interface_));
+std::unique_ptr<NetworkBackProp> NetworkBackProp::createNetwork(const Parameters& parameters, Interface interface_, std::optional<size_t> seed) {
+    return std::unique_ptr<NetworkBackProp>(new NetworkBackProp(parameters, interface_, seed));
 }
 
-std::unique_ptr<NetworkBackProp> NetworkBackProp::createNetwork(const std::vector<size_t>& Structure, Interface interface_) {
+std::unique_ptr<NetworkBackProp> NetworkBackProp::createNetwork(const std::vector<size_t>& Structure, Interface interface_, std::optional<size_t> seed) {
     Parameters parameters(Structure);
-    parameters.initParameters();
 
-    return std::unique_ptr<NetworkBackProp>(new NetworkBackProp(parameters, interface_));
+    return std::unique_ptr<NetworkBackProp>(new NetworkBackProp(parameters, interface_, seed));
 }
 
-std::unique_ptr<NetworkBackProp> NetworkBackProp::createNetwork(const std::filesystem::path& filename, Interface interface_) {
-    return std::unique_ptr<NetworkBackProp>(new NetworkBackProp(getParameters(filename), interface_));
+/*
+std::unique_ptr<NetworkBackProp> NetworkBackProp::createNetwork(const std::filesystem::path& filename, Interface interface_, std::optional<size_t> seed) {
+    return std::unique_ptr<NetworkBackProp>(new NetworkBackProp(getParameters(filename), interface_, seed));
+}
+*/
+
+void NetworkBackProp::switchInterface() {
+
+    switch (interface_)
+    {
+    case Interface::CPU:
+        if (cpuInterface)
+            return;
+
+        cpuInterface = std::make_unique<NetworkBackPropCPU>(this->parameters);
+        backPropCPUinterface = dynamic_cast<NetworkBackPropCPU*>(cpuInterface.value().get());
+
+        break;
+    case Interface::GPU:
+        // gpuInterface = std::make_unique<NetworkBackPropGPU>(this->parameters);
+        // backPropGPUinterface = dynamic_cast<NetworkBackPropGPU*>(gpuInterface.value().get());
+
+        break;
+    }
 }
 
 TestResult NetworkBackProp::TrainSet(const vector<Test>& testSet, double learningRate) {
@@ -36,4 +59,6 @@ TestResult NetworkBackProp::TrainSet(const vector<Test>& testSet, double learnin
 
 TestResult NetworkBackProp::TestSet(const vector<Test>& testSet) {
     return backPropCPUinterface.value()->TestSet(testSet);
+}
+
 }
