@@ -4,9 +4,13 @@
 
 namespace axon {
 
-Network::Network(const Parameters& parameters, Interface interface_, std::optional<size_t> seed, bool initParameters)
+Network::Network(const Parameters& parameters, Interface interface_, std::optional<size_t> seed, bool initInterface)
     : NetworkBase(parameters.structure),
-    parameters(parameters) {
+    parameters(parameters),
+    activationFunction(Function::Sigmoid),
+    outputFunction(Function::Sigmoid),
+    weightInitialisation(Initialisation::Xavier),
+    biasInitialisation(Initialisation::Xavier) {
 
     if (seed.has_value()) {
         this->seed = seed.value();
@@ -28,7 +32,8 @@ Network::Network(const Parameters& parameters, Interface interface_, std::option
     inputType = InputType::Singular;
 
     this->interface_ = interface_;
-    if (initParameters) {
+
+    if (initInterface) {
         if (interface_ == Interface::GPU) {
             gpuInterface = std::make_unique<NetworkGPU>(this->parameters);
         }
@@ -48,9 +53,11 @@ std::unique_ptr<Network> Network::createNetwork(const std::vector<size_t>& Struc
     return std::unique_ptr<Network>(new Network(parameters, interface_, seed));
 }
 
+/*
 std::unique_ptr<Network> Network::createNetwork(const std::filesystem::path& filename, Interface interface_, std::optional<size_t> seed) {
     return std::unique_ptr<Network>(new Network(getParameters(filename), interface_, seed));
 }
+*/
 
 // TODO: Better handle back ups
 // DO NOT REMOVE

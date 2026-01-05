@@ -7,6 +7,7 @@
 
 #include "Parameters.hpp"
 #include "NetworkBase.hpp"
+#include "NetworkError.hpp"
 
 namespace axon {
 
@@ -25,8 +26,12 @@ namespace axon {
         enum class Interface { CPU, GPU };
         enum class State { Ready, Inputted, Calculated };
         enum class InputType { Singular, Batched };
+
+        enum class Function : uint8_t { Sigmoid };
+        enum class Initialisation : uint8_t { Xavier };
     protected:
         std::mt19937 randomEngine;
+        // Possibly make this const
         size_t seed;
 
         Parameters parameters;
@@ -35,17 +40,25 @@ namespace axon {
         mutable State state;
         mutable InputType inputType;
 
-        // Unique pointer is for polymorphism for other network types.
+    public:
+        Function activationFunction;
+        Function outputFunction;
+
+        const Initialisation weightInitialisation;
+        const Initialisation biasInitialisation;
+    protected:
+
+        // Unique pointer is for polymorphism for other network types and to allow instanciation without the full type definition.
         std::optional<std::unique_ptr<NetworkCPU>> cpuInterface;
         std::optional<std::unique_ptr<NetworkGPU>> gpuInterface;
 
         // initParameters is to defer initialisation to derived classes to avoid initialising twice.
-        Network(const Parameters& parameters, Interface interface_ = Interface::GPU, std::optional<size_t> seed = defaultSeed, bool initParameters = true);
+        Network(const Parameters& parameters, Interface interface_ = Interface::GPU, std::optional<size_t> seed = defaultSeed, bool initInterface = true);
 
     public:
         static std::unique_ptr<Network> createNetwork(const Parameters& parameters, Interface interface_ = Interface::GPU, std::optional<size_t> seed = defaultSeed);
         static std::unique_ptr<Network> createNetwork(const std::vector<size_t>& Structure, Interface interface_ = Interface::GPU, std::optional<size_t> seed = defaultSeed);
-        static std::unique_ptr<Network> createNetwork(const std::filesystem::path& filename, Interface interface_ = Interface::GPU, std::optional<size_t> seed = defaultSeed);
+        //static std::unique_ptr<Network> createNetwork(const std::filesystem::path& filename, Interface interface_ = Interface::GPU, std::optional<size_t> seed = defaultSeed);
 
         ~Network();
 
@@ -57,16 +70,21 @@ namespace axon {
         [[nodiscard]] std::vector<double> getAnswerVector() const override;
         [[nodiscard]] std::vector<std::vector<double>> getAnswerVectors() const override;
 
-        virtual bool saveNetwork(const std::filesystem::path& filename) const;
-        virtual bool loadNetwork(const std::filesystem::path& filename);
+    private:
+        friend std::unique_ptr<Network> loadNetwork(std::error_code& ec, std::ifstream& file);
+    public:
 
         size_t getSeed() const { return seed; }
 
+        Function getActivationFunction() const { return activationFunction; }
+        Function getOuputFunction() const      { return outputFunction; }
+
         // This is for testing mainly
-        const Parameters& getNetworkParameters() { return parameters; }
+        const Parameters& getNetworkParameters() const { return parameters; }
     };
 
-    Parameters getParameters(const std::filesystem::path& filePath);
-    bool saveParameters(const Parameters& parameters, const std::filesystem::path& filePath);
+    std::error_code saveNetwork(const Network& network, const std::filesystem::path& filePath);
+    std::unique_ptr<Network> loadNetwork(const std::filesystem::path& filePath, std::error_code& ec);
 
+    std::string getFileVersion();
 }

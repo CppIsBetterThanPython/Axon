@@ -15,7 +15,6 @@ NetworkGPU::NetworkGPU(Parameters& parameters) : NetworkBase(parameters.structur
 
 NetworkGPU::~NetworkGPU() = default;
 
-// TODO: disallow input after calculate
 void NetworkGPU::input(const std::vector<double>& input) {
 	if (input.size() != inputLayerSize())
 		throw std::invalid_argument("NetworkGPU::input: Input size does not match input layer size. Expected: " + std::to_string(inputLayerSize()) +
@@ -41,9 +40,11 @@ void NetworkGPU::input(const std::vector<std::vector<double>>& input) {
 
 	for (const std::vector<double>& batch : input)
 		if (batch.size() != inputLayerSize())
+			// TODO: convert into an error code
 			throw std::invalid_argument("NetworkGPU::input: Input size does not match input layer size. Expected: " + std::to_string(inputLayerSize()) +
 				" but got:" + std::to_string(batch.size()));
 
+	// TODO: Try to only innit once
 	std::vector<double> extendedInput(largestLayer() * input.size(), 0);
 
 	for (size_t i = 0; i < input.size(); i++)
@@ -130,6 +131,7 @@ void NetworkGPU::calculate() {
 	outputBuffer = std::make_unique<cl::Buffer>(*prevLayerBuffer);
 } */
 
+// TODO: Make it float
 static void calculateLayer(
 	GPU& gpu,
 	const cl::Buffer& prevNodes,
@@ -141,10 +143,10 @@ static void calculateLayer(
 	size_t batchSize
 ) {
 
-	const char* kernelSource = R"CLC(
+	static constexpr char* kernelSource = R"CLC(
 #pragma OPENCL EXTENSION cl_khr_fp64 : enablei
 __kernel void calculateLayer(
-		__global double* prevNodes,
+		__global double* nodeGradients,
 		__global double* weights,
 		__global double* biases,
 		__global double* nodes,
@@ -181,6 +183,7 @@ __kernel void calculateLayer(
 	gpu.queue.finish();
 }
 
+// TODO: Manage the memory allocation of buffers to not
 void NetworkGPU::calculate() {
 	if (!inputBuffer)
 		throw std::invalid_argument("NetworkGPU::calculate: Must have input.");
@@ -219,8 +222,6 @@ void NetworkGPU::calculate() {
 	}
 
 	outputBuffer = std::make_unique<cl::Buffer>(*prevLayerBuffer);
-	// TODO: move this
-	//gpu->queue.enqueueReadBuffer(*prevLayerBuffer, CL_TRUE, 0, sizeof(double) * (*this)[size() - 1].nodeData.size(), (*this)[size() - 1].nodeData.data());
 }
 
 std::vector<double> NetworkGPU::getAnswerVector() const {
@@ -252,6 +253,7 @@ void NetworkGPU::saveBuffers() {
 	BiasBuffers.reserve(size());
 
 	for (size_t i = 0; i < parameters.size; i++) {
+		// TODO: Just use weightsData
 		std::vector<double> layerWeights = flattenVector(parameters.weights[i]);
 		std::vector<double> layerBiases(parameters.biases[i].begin(), parameters.biases[i].end());
 

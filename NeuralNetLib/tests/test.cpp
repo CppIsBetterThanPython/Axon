@@ -43,21 +43,20 @@ static std::vector<axon::Test> generateTestSet(int size) {
 }
 
 TEST(FileIOTests, basicIO) {
-	static size_t now = std::chrono::system_clock::now().time_since_epoch().count();
-	static std::mt19937 randomEngine(now);
 
 	std::vector<size_t> structure = { 3, 4, 2 };
 
 	const std::filesystem::path path = "tmp.nn";
 
-	axon::Parameters parameters(structure);
-	parameters.initParameters(randomEngine);
+	std::unique_ptr<const axon::Network> network = axon::Network::createNetwork(structure);
 
-	saveParameters(parameters, path);
+	axon::saveNetwork(*network, path);
 	
-	axon::Parameters readParameters = axon::getParameters(path);
+	std::error_code ec = make_error_code(axon::FileError::Ok);
+	std::unique_ptr<axon::Network> readNetwork = axon::loadNetwork(path, ec);
 
-	ASSERT_TRUE(readParameters == parameters);
+	ASSERT_EQ(readNetwork->getNetworkParameters(), network->getNetworkParameters());
+	ASSERT_EQ(readNetwork->getSeed(), network->getSeed());
 
 	std::filesystem::remove(path);
 }

@@ -31,7 +31,9 @@ double NetworkBackPropCPU::getNodeGradient(const vector<double>& nextLayerNodeGr
 
         // sigma(z)
         double data = nodeData[currentLayerPos + 1][j];
+        
 
+        // TODO: Somehow fix this for cache hits
         // wjk
         double currentLayerNodeWeight = parameters.weights[currentLayerPos][j][nodePos];
 
@@ -91,12 +93,14 @@ double NetworkBackPropCPU::getBiasGradient(double nextLayerNodeGradient, size_t 
 // Returns a vector of how each bias and weight would like to be changed
 Parameters NetworkBackPropCPU::differentiate(vector<double> expectedAnswers) {
     // How the network would like the node data to change, used to calculate weight and bias gradients
+    // TODO: flatten this
     vector<vector<double>> nodeGradientVector(size());
     // Gradient of the controlable values (weights, biases)
     Parameters parameterGradients = Parameters(getStructure());
 
     // Calculates input layer gradients
     for (size_t i = 0; i < getStructure().back(); i++) {
+        // TODO: include the error function as an enum in the network
         double nodeGradient = 2 * (nodeData.back()[i] - expectedAnswers[i]);
         nodeGradientVector.back().push_back(nodeGradient);
     }

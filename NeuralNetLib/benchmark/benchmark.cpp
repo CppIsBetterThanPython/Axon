@@ -4,7 +4,6 @@
 constexpr size_t seed = 100;
 
 static void BM_CalculateGPU(benchmark::State& state) {
-	static size_t now = std::chrono::system_clock::now().time_since_epoch().count();
 	static std::mt19937 randomEngine(seed);
 
 	std::vector<size_t> structure = { 1000, 1000, 1000, 1000, 1000 };
@@ -22,7 +21,9 @@ static void BM_CalculateGPU(benchmark::State& state) {
 	}
 
 	for (auto _ : state) {
+
 		state.PauseTiming();
+
 		std::vector<std::vector<double>> input = {};
 		input.reserve(1000);
 		for (size_t i = 0; i < 1000; i++) {
@@ -34,6 +35,7 @@ static void BM_CalculateGPU(benchmark::State& state) {
 			}
 		}
 		net->input(input);
+
 		state.ResumeTiming();
 		
 		net->calculate();
@@ -43,7 +45,6 @@ static void BM_CalculateGPU(benchmark::State& state) {
 }
 
 static void BM_CalculateCPU(benchmark::State& state) {
-	static size_t now = std::chrono::system_clock::now().time_since_epoch().count();
 	static std::mt19937 randomEngine(seed);
 
 	std::vector<size_t> structure = { 1000, 1000, 1000, 1000, 1000 };

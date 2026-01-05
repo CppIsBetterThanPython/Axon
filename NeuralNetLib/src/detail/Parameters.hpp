@@ -10,7 +10,6 @@ namespace axon {
     // 
     // Structure to store basic parameters of the network
     struct Parameters {
-    private:
         std::vector<double> weightsData;
         std::vector<double> biasesData;
 
@@ -21,9 +20,10 @@ namespace axon {
         size_t size;
         std::vector<size_t> structure;
 
-        friend bool saveParameters(const Parameters& parameters, const std::filesystem::path& filePath);
-
-        friend Parameters getParameters(const std::filesystem::path& filePath);
+    private:
+        friend std::error_code saveParameters(const Parameters& parameters, std::ofstream& file);
+        friend std::unique_ptr<Parameters> loadParameters(std::error_code& ec, std::ifstream& file);
+    public:
 
         Parameters(std::vector<size_t> structure);
         Parameters(Parameters&& other) noexcept;

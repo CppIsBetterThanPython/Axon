@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <numeric> // For std::accumulate and other algorithms
 #include <random> // For deterministic and high quality PRNG
+#include <system_error> // For standard error codes
 
 // My own utilities header with functions that would not look right in any single header file
 // I will not change it often so it doesn't override the benifits of a pch

@@ -15,17 +15,21 @@
     - [ ] Tanh
     - [ ] Arctan
     - [ ] Leaky Relu
-- [ ] Better file saving
-    - [ ] Magic number "axon"
-    - [ ] Version hash
-    - [ ] Sections
-        - [ ] Section ID
-        - [ ] Section Size
-        - [ ] Check section size against expected size
+- [ ] More initialisation functions
+    - [ ] Xavier initialisation
+    - [ ] He initialisation
+    - [ ] Uniform initialisation
+- [x] Better file saving
+    - [x] Magic number "axon"
+    - [x] Version hash
+    - [x] Sections
+        - [x] Section ID
+        - [x] Section Size
+        - [x] Check section size against expected size
     - [ ] Section Skipping
-    - [ ] Network type
-    - [ ] Activation function
-    - [ ] Output function
+    - [x] Network type
+    - [x] Activation function
+    - [x] Output function
 - [ ] Image transformation for better demo
     - [ ] Rotate
     - [ ] Translate

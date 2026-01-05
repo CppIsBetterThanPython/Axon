@@ -27,9 +27,11 @@ std::unique_ptr<NetworkBackProp> NetworkBackProp::createNetwork(const std::vecto
     return std::unique_ptr<NetworkBackProp>(new NetworkBackProp(parameters, interface_, seed));
 }
 
+/*
 std::unique_ptr<NetworkBackProp> NetworkBackProp::createNetwork(const std::filesystem::path& filename, Interface interface_, std::optional<size_t> seed) {
     return std::unique_ptr<NetworkBackProp>(new NetworkBackProp(getParameters(filename), interface_, seed));
 }
+*/
 
 void NetworkBackProp::switchInterface() {
 
