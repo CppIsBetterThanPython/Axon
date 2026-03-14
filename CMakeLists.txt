@@ -3,6 +3,12 @@
 #
 cmake_minimum_required (VERSION 3.8)
 
+# TODO: Check this
+set(CMAKE_CONFIGURATION_TYPES
+    "Debug;Release;RelWithDebInfo;MinSizeRel" CACHE STRING "" FORCE
+)
+#-------------------
+
 # Enable Hot Reload for MSVC compilers if supported.
 if (POLICY CMP0141)
     cmake_policy(SET CMP0141 NEW)
