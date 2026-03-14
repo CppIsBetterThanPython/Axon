@@ -8,6 +8,16 @@ inline constexpr size_t defaultSeed = 5489u;
 // To turn values into 0-1 range
 static inline double Sigmoid(const double x) { return 1 / (1 + exp(-x)); }
 
+// Following function for dynamic GPU kernel compilation
+template<typename T>
+constexpr const std::string typeName() { return "unknown"; }
+
+template<>
+constexpr const std::string typeName<float>() { return "f32"; }
+
+template<>
+constexpr const std::string typeName<double>() { return "f64"; }
+
 template<typename C>
 inline std::vector<typename C::value_type> flattenVector(const std::vector<C>& vec) {
     using T = typename C::value_type;
@@ -33,7 +43,6 @@ size_t getLargestID(const std::vector<T>& vec) {
     return currentLargestID;
 }
 
-// TODO: use std::random 
 // For random number to use in Xavier Initialization
 template<typename T>
 inline double RandomReal(T& randomEngine) {

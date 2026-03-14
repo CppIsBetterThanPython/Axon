@@ -61,6 +61,8 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(googlebenchmark)
 
+# Misc Benchmarks
+#################################################
 add_executable(nnbenchmark "benchmark/benchmark.cpp")
 
 target_link_libraries(nnbenchmark
@@ -69,11 +71,21 @@ PRIVATE
     benchmark::benchmark
 )
 
-add_executable(nntest "tests/test.cpp")
+# Experimental Benchmarks
+#################################################
 
-target_compile_options(nntest PRIVATE
-    $<$<CONFIG:Debug>:/Zi /Od>
+add_executable(nnexperimental "benchmark/experimental.cpp")
+
+target_link_libraries(nnexperimental
+PRIVATE
+    nnlib
+    benchmark::benchmark
 )
+
+# Misc Tests
+#################################################
+
+add_executable(nntest "tests/test.cpp")
 
 target_link_libraries(
     nntest
@@ -84,6 +96,9 @@ PRIVATE
 
 include(GoogleTest)
 gtest_discover_tests(nntest)
+
+# Uitls tests
+#################################################
 
 add_executable(test_utils "tests/testUtils.cpp")
 

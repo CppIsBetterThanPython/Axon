@@ -105,8 +105,7 @@ TEST(ForwardPassTests, BatchedInput) {
 }
 
 TEST(BackwardsPassTests, Basic) {
-
-	std::vector<size_t> structure = { 6, 2 };
+	std::vector<size_t> structure = { 6, 8, 2 };
 	std::unique_ptr<axon::NetworkBackProp> net = axon::NetworkBackProp::createNetwork(structure);
 
 	EXPECT_NO_THROW(net->TrainSet(generateTestSet(5), 0.01));
