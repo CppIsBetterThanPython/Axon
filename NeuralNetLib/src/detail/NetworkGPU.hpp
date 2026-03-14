@@ -61,4 +61,15 @@ namespace axon {
         }
     };
 
+    void calculateLayer(
+        GPU& gpu,
+        const cl::Buffer& prevNodes,
+        const cl::Buffer& weights,
+        const cl::Buffer& biases,
+        cl::Buffer& nodes,
+        size_t prevNodesSize,
+        size_t nodesSize,
+        size_t batchSize
+    );
+
 }

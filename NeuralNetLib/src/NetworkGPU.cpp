@@ -132,7 +132,7 @@ void NetworkGPU::calculate() {
 } */
 
 // TODO: Make it float
-static void calculateLayer(
+void axon::calculateLayer(
 	GPU& gpu,
 	const cl::Buffer& prevNodes,
 	const cl::Buffer& weights,
@@ -143,12 +143,12 @@ static void calculateLayer(
 	size_t batchSize
 ) {
 
-	static constexpr char* kernelSource = R"CLC(
-#pragma OPENCL EXTENSION cl_khr_fp64 : enablei
+	static constexpr const char* kernelSource = R"CLC(
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
 __kernel void calculateLayer(
-		__global double* nodeGradients,
-		__global double* weights,
-		__global double* biases,
+		__constant double* prevNodes,
+		__constant double* weights,
+		__constant double* biases,
 		__global double* nodes,
 		ulong prevNodesSize,
 		ulong curNodeSize) {
@@ -206,7 +206,7 @@ void NetworkGPU::calculate() {
 		cl::Buffer& weightsBuffer = *WeightBuffers[currentLayerIndex - 1];
 		cl::Buffer& biasesBuffer = *BiasBuffers[currentLayerIndex - 1];
 
-		calculateLayer(
+		axon::calculateLayer(
 			*gpu,
 			*prevLayerBuffer,
 			weightsBuffer,

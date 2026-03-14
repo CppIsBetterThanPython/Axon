@@ -15,7 +15,9 @@ namespace axon {
 
         bool isInitialised;
     public:
+        // weights[Layer][destinationNode][originNode]
         std::vector<std::vector<std::span<double>>> weights;
+        // biases[Layer][node]
         std::vector<std::span<double>> biases;
         size_t size;
         std::vector<size_t> structure;
