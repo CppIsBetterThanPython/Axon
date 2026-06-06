@@ -62,12 +62,44 @@ namespace axon {
 
         ~Network();
 
+	/**
+	 * @brief Switches the current compute interface
+	 *
+	 * @details Tries to swap the current interface to the opposite. May fail if no OpenCL instance can be made.
+	 */
         virtual void switchInterface();
 
-        void input(const std::vector<std::vector<double>>&);
+	/**
+	 * @brief Inputs values into the network and changes internal state to reflect this.
+	 *
+	 * @details This only stores the values, it does not compute anything. If you call it again before calculating it will fail and keep the previous input.
+	 */
         void input(const std::vector<double>& input) override;
+	/**
+	 * @brief \copybrief input(const std::vector<double>&)
+	 *
+	 * @details This only stores the values, it does not compute anything. It you call it again before calculating it will fail and keep the previous input. This version takes multiple inputs to compute in parallel.
+	 *
+	 * @param 
+	 */
+        void input(const std::vector<std::vector<double>>& input);
+	/**
+	 * @brief Performs a forward pass.
+	 *
+	 * @details Passes data through the layers of the network. Must happen after input.
+	 */
         void calculate() override;
+	/**
+	 * @brief Returns the activation layer of the network.
+	 *
+	 * @details Only works when there was only one input. Must happen after calculation.
+	 */
         [[nodiscard]] std::vector<double> getAnswerVector() const override;
+	/**
+	 * @brief Returns the activation layer of the network for all inputs.
+	 *
+	 * @details Must happen after calculation.
+	 */
         [[nodiscard]] std::vector<std::vector<double>> getAnswerVectors() const override;
 
     private:

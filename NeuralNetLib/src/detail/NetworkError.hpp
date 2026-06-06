@@ -2,8 +2,19 @@
 
 #include "pch.h"
 
+/**
+ * @defgroup errors Error System
+ * @brief Strongly-typed error codes used across Axon.
+ *
+ * This module defines error enums and integrates them with `std::error_code` for use with the STL.
+ */
+
 namespace axon {
 
+	/**
+	 * @brief Errors related to file I/O
+	 * @ingroup errors
+	 */
 	enum class FileError : uint8_t
 	{
 		Ok,
@@ -43,10 +54,18 @@ namespace axon {
 		return instance;
 	}
 
+	/**
+	 * @brief Converts `FileError` into `std::error_code`.
+	 * @ingroup errors
+	 */
 	inline std::error_code make_error_code(FileError error) {
 		return { static_cast<int>(error), FileError_Category() };
 	}
 
+	/**
+	 * @brief Errors related to compute interfaces such as OpenCL.
+	 * @ingroup errors
+	 */
 	enum class InterfaceError : uint8_t
 	{
 		Ok,
@@ -76,10 +95,18 @@ namespace axon {
 		return instance;
 	}
 
+	/**
+	 * @brief Converts `InterfaceError` into `std::error_code`.
+	 * @ingroup errors
+	 */
 	inline std::error_code make_error_code(InterfaceError error) {
 		return { static_cast<int>(error), InterfaceError_Category() };
 	}
 
+	/**
+	 * @brief Errors related to incorrect library usage.
+	 * @ingroup errors
+	 */
 	enum class UsageError : uint8_t
 	{
 		Ok,
@@ -111,6 +138,10 @@ namespace axon {
 		return instance;
 	}
 
+	/**
+	 * @brief Converts `UsageError` into `std::error_code`.
+	 * @ingroup errors
+	 */
 	inline std::error_code make_error_code(UsageError error) {
 		return { static_cast<int>(error), UsageError_Category() };
 	}

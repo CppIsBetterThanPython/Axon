@@ -1,0 +1,10 @@
+var searchData=
+[
+  ['calculate_0',['calculate',['../classaxon_1_1_network.html#af88cf0d6bfe5783819309223c97f188d',1,'axon::Network']]],
+  ['calculated_1',['Calculated',['../classaxon_1_1_network.html#a6a95ff85d27298f47a9fdf0ec1e6ec03a46057d774fc3b6bbcd90dcd1406bf889',1,'axon::Network']]],
+  ['cannotopenfile_2',['CannotOpenFile',['../group__errors.html#gga4141645537e72df1ebba46ad8513b192ab6e72c7ff48da73ebe1d8ad55868e2e5',1,'axon']]],
+  ['corruptfile_3',['CorruptFile',['../group__errors.html#gga4141645537e72df1ebba46ad8513b192aebc20f75fe1f398d47947da572c5a452',1,'axon']]],
+  ['cpu_4',['CPU',['../classaxon_1_1_network.html#ad842fd9c43bdf4b083c90cdd05bb2b28a2b55387dd066c5bac646ac61543d152d',1,'axon::Network']]],
+  ['cpuinterface_5',['cpuInterface',['../classaxon_1_1_network.html#a93fc6ce028f09c63bf10fc166bf5c81e',1,'axon::Network']]],
+  ['createnetwork_6',['createNetwork',['../classaxon_1_1_network.html#a9cb7a4af1f528f43d3ee05b517d2a3c8',1,'axon::Network::createNetwork(const Parameters &amp;parameters, Interface interface_=Interface::GPU, std::optional&lt; size_t &gt; seed=defaultSeed)'],['../classaxon_1_1_network.html#a1ad48168cebfde1db1ac223dca5d8096',1,'axon::Network::createNetwork(const std::vector&lt; size_t &gt; &amp;Structure, Interface interface_=Interface::GPU, std::optional&lt; size_t &gt; seed=defaultSeed)'],['../classaxon_1_1_network_back_prop.html#a14241af02b10746a645f01b93d87334f',1,'axon::NetworkBackProp::createNetwork(const Parameters &amp;parameters, Interface interface_=Interface::CPU, std::optional&lt; size_t &gt; seed=defaultSeed)'],['../classaxon_1_1_network_back_prop.html#a73019d258510222f07163e906d17d7c8',1,'axon::NetworkBackProp::createNetwork(const std::vector&lt; size_t &gt; &amp;Structure, Interface interface_=Interface::CPU, std::optional&lt; size_t &gt; seed=defaultSeed)'],['../classaxon_1_1_network_back_prop.html#a3787983185d61640f62a64fae5623095',1,'axon::NetworkBackProp::createNetwork(const std::filesystem::path &amp;filename, Interface interface_=Interface::CPU, std::optional&lt; size_t &gt; seed=defaultSeed)']]]
+];
