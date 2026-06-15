@@ -31,3 +31,8 @@ build/
 # Ignore my file to test iterations seperately
 Iterations/
 Test/
+
+# Ignore generated documentation
+
+docs/html/
+docs/latex/
