@@ -132,7 +132,7 @@ void NetworkGPU::calculate() {
 } */
 
 // TODO: Make it float
-void axon::calculateLayer(
+void calculateLayer(
 	GPU& gpu,
 	const cl::Buffer& prevNodes,
 	const cl::Buffer& weights,

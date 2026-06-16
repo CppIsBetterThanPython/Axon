@@ -39,8 +39,7 @@ namespace axon {
         [[nodiscard]] std::vector<double> getAnswerVector() const override;
         [[nodiscard]] std::vector<std::vector<double>> getAnswerVectors() const override;
 
-        void loadBuffers();
-        void saveBuffers();
+        virtual void saveBuffers();
 
         inline size_t largestLayer() const {
             size_t curLargestLayer = 0;

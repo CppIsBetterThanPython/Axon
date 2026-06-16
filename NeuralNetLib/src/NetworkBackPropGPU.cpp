@@ -1,5 +1,7 @@
 #include "GPU.hpp"
+#include <CL/cl.h>
 #include "NetworkBackPropGPU.hpp"
+#include "gpuUtils.hpp"
 
 namespace axon {
 
@@ -7,65 +9,6 @@ NetworkBackPropGPU::NetworkBackPropGPU(Parameters& parameters) : NetworkGPU(para
 
 	layerBuffers.resize(parameters.size);
 
-}
-
-static void average(
-	GPU& gpu,
-	const cl::Buffer& array,
-	size_t arraySize
-) {
-
-	const char* kernelSource = R"CLC(
-#pragma OPENCL EXTENSION cl_khr_fp64 : enable
-
-__kernel void average(
-		__global double* array,
-		ulong arraySize) {
-
-	int groupSize = get_enqueued_local_size(0);
-	
-	int localID = get_local_id(0);
-	int groupID = get_group_id(0);
-
-	int viewStart = groupSize * groupID * 2;
-
-	int viewSize = (arraySize - viewStart) % (groupSize * 2);
-
-	__local double[viewSize] view;
-
-	int viewIndex = localID * 2;
-
-	view[viewIndex] = array[viewStart + viewIndex];
-	view[viewIndex + 1] = array[viewStart + viewIndex + 1];
-
-	for (int stride = 1; stride < viewSize; stride *= 2) {
-		if (localID % stride == 0) {
-			view[localID * 2 * stride] += view[(localID * 2 + 1) * stride];
-		}
-		
-		barrier(CLK_LOCAL_MEM_FENCE);
-	}
-
-	barrier(CLK_GLOBAL_MEM_FENCE);
-
-	if (localID == 0) {
-		array[groupID] = view[0] / viewSize;
-	}
-}
-)CLC";
-
-	gpu.BuildKernel("average", kernelSource);
-
-	// TODO make BuildKernel return the kernel
-	cl::Kernel& kernel = gpu.kernels["average"];
-
-	kernel.setArg(0, array);
-	kernel.setArg(1, (cl_long)(arraySize));
-
-	cl::NDRange range((size_t)(arraySize / 2));
-	gpu.queue.enqueueNDRangeKernel(kernel, cl::NullRange, range);
-
-	gpu.queue.finish();
 }
 
 void NetworkBackPropGPU::backPropCalculate(size_t batchSize) {
@@ -91,10 +34,11 @@ void NetworkBackPropGPU::backPropCalculate(size_t batchSize) {
 
 }
 
-static TestResult performance(
+static void getCosts(
 	GPU& gpu,
-	const cl::Buffer& output,
-	const cl::Buffer& Expected,
+	const cl::Buffer& predicted,
+	const cl::Buffer& expected,
+	cl::Buffer& costs,
 	size_t outputLayerSize,
 	size_t batchSize
 ) {
@@ -106,291 +50,303 @@ double MSE(double predicted, double expected) {
 	return pow(predicted - expected, 2);
 }
 
-__kernel void modifyParameters(
-		__constant double* predicted,	// Gradients that the parameters want to change by
-		__constant double* expected,
-		__global double* averageCost,
-		ulong outputLayerSize,
-		ulong batchSize) {
+__kernel void getCost(
+		__global const double* predicted,	// Gradients that the parameters want to change by
+		__global const double* expected,
+		__global doube* costs,
+		size_t outputLayerSize,
+		size_t batchSize) {
 	
 	int neuronID = get_global_id(0);
 	int batchID = get_global_id(1);
-	
-	atomic_add(averageCost, MSE(predicted[outputLayerSize * batchID + neuronID], expected[outputLayerSize * batchID + neuronID]));
 
-	if (batchID == 0 && neuronID == 0) {
-		averageCost /= batchSize * outputLayerSize;
-	}
+	costs[neuronID * batchSize + batchID] = MSE(predicted[outputLayerSize * batchID + neuronID], expected[outputLayerSize * batchID + neuronID]);
 }
 )CLC";
 
-	gpu.BuildKernel("modifyParameters", kernelSource);
+	gpu.BuildKernel("getCost", kernelSource);
 
-	cl::Kernel& weightKernel = gpu.kernels["modifyParameters"];
+	cl::Kernel& weightKernel = gpu.kernels["getCost"];
 
-	weightKernel.setArg(0, weightGradients);
-	weightKernel.setArg(1, weights);
-	weightKernel.setArg(2, (cl_double)learningRate);
+	weightKernel.setArg(0, predicted);
+	weightKernel.setArg(1, expected);
+	weightKernel.setArg(2, costs);
+	weightKernel.setArg(3, outputLayerSize);
+	weightKernel.setArg(4, batchSize);
 
-	cl::NDRange weightRange(nodesSize * prevNodesSize);
-	gpu.queue.enqueueNDRangeKernel(weightKernel, cl::NullRange, weightRange);
-
-	cl::Kernel& biasKernel = gpu.kernels["batchAverage"];
-
-	biasKernel.setArg(0, biasGradients);
-	biasKernel.setArg(1, biases);
-	biasKernel.setArg(2, (cl_double)learningRate);
-
-	cl::NDRange biasRange(nodesSize);
-	gpu.queue.enqueueNDRangeKernel(weightKernel, cl::NullRange, biasRange);
-
+	cl::NDRange global(outputLayerSize, batchSize);
+	gpu.queue.enqueueNDRangeKernel(weightKernel, cl::NullRange, global);
 	gpu.queue.finish();
 }
 
-void inputLayerGradients(
+double getCost(
 	GPU& gpu,
-	const cl::Buffer& correctAnswers,
-	const cl::Buffer& nodeGradients,
-	const cl::Buffer& nextNodes,
-	const cl::Buffer& nodes,
-	const cl::Buffer& weightGradients,
-	const cl::Buffer& biasGradients,
-	size_t nextNodesSize,
+	const cl::Buffer& predicted,
+	const cl::Buffer& expected,
+	size_t outputLayerSize,
+	size_t batchSize
+) {
+	cl::Buffer costs(
+		gpu.context,
+		CL_MEM_READ_WRITE,
+		sizeof(double) * batchSize
+	);
+
+	getCosts(
+		gpu,
+		predicted,
+		expected,
+		costs,
+		outputLayerSize,
+		batchSize
+	);
+
+	return reduce(gpu, costs, batchSize);
+}
+
+/**
+ * @brief Calculates the Deltas for the output layer
+ *
+ * This function computes the Deltas (d/dz Error) of the output layer of a fully connected neural network.
+ * It does this using an OpenCL GPU compute kernel.
+ * It allows for processing multiple backwards passes at once.
+ *
+ * @param gpu GPU execution context.
+ * @param expectedValues Expected values for the output nodes.
+ * @param outputNodes The values of the output nodes.
+ * @param deltas The buffer of deltas that is written to.
+ * @param nodesSize The amount of nodes in the output layer.
+ * @param batchSize The amount of batches being proccessed.
+ */
+void outputLayerDeltas(
+	GPU& gpu,
+	const cl::Buffer& expectedValues,
+	const cl::Buffer& outputNodes,
+	cl::Buffer& deltas,
 	size_t nodesSize,
 	size_t batchSize
-
 ) {
 
-	const char* kernelSource = R"CLC(
+	static constexpr const char* kernelSource = R"CLC(
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 
 static inline double MSEderivative(double predicted, double expected) {
-	return 2 * (predicted - expected)
+	return 2 * (predicted - expected);
 }
 
-__kernel void inputLayerGradients(
-		__global double* correctAnswers,
-		__global double* nodeGradients,		// Gradients of nodes in layer L
-		__global double* nextNodes,			// Nodes in layer L-1
-		__global double* nodes,				// Nodes in layer L
-		__global double* weightGradients,	// Weight gradients from layer L-1 to L
-		__global double* biasGradients,		// Bias gradients of layer L
-		ulong nextNodeSize,
-		ulong curNodeSize) {
+static inline double sigmoidDerivative(double sigmoid) {
+	return sigmoid * (1 - sigmoid);
+}
+
+__kernel void outputLayerDeltas(
+		__global const double* expectedValues,	// Expected values for the Output Nodes
+		__global const double* outputNodes,	// Values of the Output Nodes
+		__global double* deltas,		// Deltas for the Output Layer
+		size_t nodeSize,
+) {
 	
-	// ID of the neuron in layer L
-	int neuronID = get_global_id(0);
+	int deltaID = get_global_id(0);
 	int batchID = get_global_id(1);
 
-	// CALCULATE NODE GRADIENTS
-	//////////////////////////////////////////////////
-	
-	nodeGradients[batchID * curNodeSize + neuronID] =
-		MSEderivative(nodes[batchID * curNodeSize + neuronID], correctAnswers[batchID * curNodeSize * neuronID]);
-
-	// CALCULATE WEIGHT GRADIENTS
-	//////////////////////////////////////////////////
-
-	for (int i = 0; i < nextNodeSize; i++) {
-		double prevNode = nodes[batchID * curNodeSize + neuronID];
-		double node = nextNodes[batchID * nextNodeSize + i];
-
-		double nodeDerivative = sigmoidDerivative(prevNode) * node;
-
-		weightGradients[batchID * nextNodeSize * curNodeSize + nextNodeSize * neuronID + i]
-			= nodeDerivative * nodeGradients[batchID * curNodeSize + neuronID];
-	}
-
-	// CALCULATE BIAS GRADIENTS
-	//////////////////////////////////////////////////
-
-	double node = nodes[batchID * curNodeSize + neuronID];
-
+	// dE/da
+	double nodeGradient =
+		MSEderivative(
+			outputNodes[batchID * nodeSize + deltaID],
+			expectedValues[batchID * nodeSize + deltaID]
+		);
+	double node = outputNodes[batchID * nodeSize + deltaID];
 	double nodeDerivative = sigmoidDerivative(node);
 
-	biasGradients[neuronID] = nodeDerivative * nodeGradients[batchID * curNodeSize + neuronID];
+	deltas[batchID * nodeSize + deltaID] = nodeDerivative * nodeGradient;
 }
 )CLC";
 
-	gpu.BuildKernel("layerGradients", kernelSource);
+	gpu.BuildKernel("outputLayerDeltas", kernelSource);
 
-	cl::Kernel& kernel = gpu.kernels["layerGradients"];
+	cl::Kernel& kernel = gpu.kernels["outputLayerDeltas"];
 
-	kernel.setArg(0, correctAnswers);
-	kernel.setArg(1, nodeGradients);
-	kernel.setArg(2, nextNodes);
-	kernel.setArg(3, nodes);
-	kernel.setArg(4, weightGradients);
-	kernel.setArg(5, biasGradients);
-	kernel.setArg(6, (cl_long)nextNodesSize);
-	kernel.setArg(7, (cl_long)nodesSize);
+	kernel.setArg(0, expectedValues);
+	kernel.setArg(1, outputNodes);
+	kernel.setArg(2, deltas);
+	kernel.setArg(3, nodesSize);
 
 	cl::NDRange global(nodesSize, batchSize);
 	gpu.queue.enqueueNDRangeKernel(kernel, cl::NullRange, global);
 	gpu.queue.finish();
+
 }
 
-void layerGradients(
+/**
+ * @brief Calculates the Deltas for any (non-output) layer
+ *
+ * This function computes the Deltas (d/dz Error) of the given layer of a fully connected neural network.
+ * It does this using an OpenCL GPU compute kernel.
+ * It allows for processing multiple backwards passes at once.
+ *
+ * @param gpu GPU execution context.
+ * @param weights Weights from current layer to previous layer.
+ * @param nodes The values of the current layer nodes.
+ * @param deltas The buffer of deltas that is written to.
+ * @param prevLayerSize The amount of nodes in the previous layer.
+ * @param layerSize The amount of nodes in the current layer.
+ * @param batchSize The amount of batches being proccessed.
+ */
+void layerDeltas(
 	GPU& gpu,
-	const cl::Buffer& prevNodeGradients,	// Calculated gradients of nodes in layer L+1
-	const cl::Buffer& nodeGradients,		// Gradients of nodes in layer L
-	const cl::Buffer& prevNodes,			// Nodes in layer L+1
-	const cl::Buffer& nodes,				// Nodes in layer L
-	const cl::Buffer& nextNodes,			// Nodes in layer L-1
-	const cl::Buffer& weights,				// Weights from layer L to L+1
-	const cl::Buffer& weightGradients,		// Weight gradients from layer L-1 to L
-	const cl::Buffer& biasGradients,		// Bias gradients of layer L
-	size_t nextNodesSize,
-	size_t nodesSize,
-	size_t prevNodesSize,
+	const cl::Buffer& weights,
+	const cl::Buffer& prevDeltas,
+	const cl::Buffer& nodes,
+	cl::Buffer& deltas,
+	size_t prevLayerSize,
+	size_t layerSize,
 	size_t batchSize
-
 ) {
 
-	const char* kernelSource = R"CLC(
+	static constexpr const char* kernelSource = R"CLC(
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 
 static inline double sigmoidDerivative(double sigmoid) {
 	return sigmoid * (1 - sigmoid);
 }
 
-__kernel void layerGradients(
-		__global double* prevNodeGradients, // Calculated gradients of nodes in layer L+1
-		__global double* nodeGradients,		// Gradients of nodes in layer L
-		__global double* nextNodes,			// Nodes in layer L-1
-		__global double* nodes,				// Nodes in layer L
-		__global double* prevNodes,			// Nodes in layer L+1
-		__global double* weights,			// Weights from layer L to L+1
-		__global double* weightGradients,	// Weight gradients from layer L-1 to L
-		__global double* biasGradients,		// Bias gradients of layer L
-		ulong nextNodeSize,
-		ulong curNodeSize,
-		ulong prevNodeSize) {
+__kernel void layerDeltas(
+		__global const double* weights,		// Weights from current layer to previous layer
+		__global const double* prevDeltas,	// The deltas of the previous layer
+		__global const double* nodes		// The values of the nodes of the current layer
+		__global double* deltas,		// Deltas for the current layer
+		size_t layerSize,
+		size_t prevLayerSize
+) {
 	
-	// ID of the neuron in layer L
-	int neuronID = get_global_id(0);
+	int deltaID = get_global_id(0);
 	int batchID = get_global_id(1);
 
-	// CALCULATE NODE GRADIENTS
-	//////////////////////////////////////////////////
-	
-	// Possibly some redundent calculations here
-	nodeGradients[batchID * curNodeSize + neuronID] = 0.0;
+	// dE/da
+	double nodeGradient = 0.0;
 
-	for (int i = 0; i < prevNodeSize; i++) {
-		double prevNode = prevNodes[batchID * prevNodeSize + i];
-
-		double weight = weights[i * curNodeSize + neuronID];
-
-		double nodeDerivative = sigmoidDerivative(prevNode) * weight;
-
-		nodeGradients[batchID * curNodeSize + neuronID] += prevNodeGradients[batchID * prevNodeSize + i] * nodeDerivative;
+	for (size_t i = 0; i < prevLayerSize; i++) {
+		nodeGradient += weights[i * prevLayerSize + deltaID] * prevDeltas[batchID * prevLayerSize + i];
 	}
 
-	// CALCULATE WEIGHT GRADIENTS
-	//////////////////////////////////////////////////
-
-	for (int i = 0; i < nextNodeSize; i++) {
-		double prevNode = nodes[batchID * curNodeSize + neuronID];
-		double node = nextNodes[batchID * nextNodeSize + i];
-
-		double nodeDerivative = sigmoidDerivative(prevNode) * node;
-
-		weightGradients[batchID * nextNodeSize * curNodeSize + nextNodeSize * neuronID + i]
-			= nodeDerivative * nodeGradients[batchID * curNodeSize + neuronID];
-	}
-
-	// CALCULATE BIAS GRADIENTS
-	//////////////////////////////////////////////////
-
-	double node = nodes[batchID * curNodeSize + neuronID];
-
+	double node = nodes[batchID * layerSize + deltaID];
+	// dz/da
 	double nodeDerivative = sigmoidDerivative(node);
 
-	biasGradients[neuronID] = nodeDerivative * nodeGradients[batchID * curNodeSize + neuronID];
+	deltas[batchID * layerSize + deltaID] = nodeDerivative * nodeGradient;
 }
 )CLC";
 
-	gpu.BuildKernel("layerGradients", kernelSource);
+	gpu.BuildKernel("layerDeltas", kernelSource);
 
-	cl::Kernel& kernel = gpu.kernels["layerGradients"];
+	cl::Kernel& kernel = gpu.kernels["layerDeltas"];
 
-	kernel.setArg(0, prevNodeGradients);
-	kernel.setArg(1, nodeGradients);
-	kernel.setArg(2, nextNodes);
-	kernel.setArg(3, nodes);
-	kernel.setArg(4, prevNodes);
-	kernel.setArg(5, weights);
-	kernel.setArg(6, weightGradients);
-	kernel.setArg(7, biasGradients);
-	kernel.setArg(8, (cl_long)nextNodesSize);
-	kernel.setArg(9, (cl_long)nodesSize);
-	kernel.setArg(10, (cl_long)prevNodesSize);
+	kernel.setArg(0, weights);
+	kernel.setArg(1, prevDeltas);
+	kernel.setArg(2, nodes);
+	kernel.setArg(3, deltas);
+	kernel.setArg(4, layerSize);
+	kernel.setArg(5, prevLayerSize);
 
-	cl::NDRange global(nodesSize, batchSize);
+	cl::NDRange global(layerSize, batchSize);
 	gpu.queue.enqueueNDRangeKernel(kernel, cl::NullRange, global);
 	gpu.queue.finish();
 }
 
-void averageGradients(
-	GPU& gpu,
-	const cl::Buffer& weightGradients,
-	const cl::Buffer& biasGradients,
-	size_t nodesSize,
-	size_t prevNodesSize, // Prev relative to forward pass
-	size_t batchSize
 
+void weightGradients(
+	GPU& gpu,
+	const cl::Buffer& nodes,
+	const cl::Buffer& prevDeltas,
+	cl::Buffer& weightGradients,
+	size_t layerSize,
+	size_t prevLayerSize,
+	size_t batchSize
 ) {
 
-		const char* kernelSource = R"CLC(
+	static constexpr const char* kernelSource = R"CLC(
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 
-// Kernel computes the average of the batched outputs from back propagation
-__kernel void batchAverage(
-		__global double* array,	// Array of elements with 'batchSize' batches each with 'arraySize' elements
-		ulong arraySize,
-		ulong batchSize) {
+__kernel void weightGradients(
+		__global const double* nodes,		// The values of the nodes of the current layer
+		__global const double* prevDeltas,	// The deltas of the previous layer
+		__global double* weightGradients,	// Weight gradients of the weights from the current layer to theprevious layer
+		__local double* localData,		// Local array that stores the intermediate sums
+		size_t layerSize,
+		size_t prevLayerSize,
+		size_t batchSize
+) {
 	
-	int elementID = get_global_id(0);	// The element being averaged
-	int threadID = get_global_id(1);	// Half as many threads as batches
+	size_t batchID = get_global_id(0);
+	size_t localBatchID = get_local_id(0);
+	size_t groupID = get_group_id(0);
+	size_t localBatchSize = get_local_size(0);
 
-	for (int stride = 1; stride < batchSize; stride *= 2) {
-		if (threadID % stride == 0) {
-			array[(threadID * 2) * arraySize * stride + elementID] += array[(threadID * 2 + 1) * arraySize * stride + elementID];
-		}
+	size_t localLayerSize = get_local_size(1);
+	size_t localLayerID = get_local_id(1);
+	size_t layerID = get_global_id(1);
 
-		// TODO: Only pause workers in the same batch
-		barrier(CLK_GLOBAL_MEM_FENCE);
+	size_t localNodeID = get_local_id(2);
+	size_t nodeID = get_global_id(2);
+
+	__local double* localBatches = localData + localNodeID * localLayerSize * localBatchSize + localLayerID * localBatchSize;
+	
+	if (batchID < batchSize && layerID < layerSize && nodeID < prevLayerSize) {
+		localBatches[localBatchID] =
+			prevDeltas[batchID * prevLayerSize + nodeID] *
+			nodes[batchID * layerSize + layerID];
+	} else {
+		localBatches[localBatchID] = 0.0;
 	}
-	
-	if (threadID == 0) {
-		array[weightID] /= batchSize;
+
+	barrier(CLK_LOCAL_MEM_FENCE);
+
+	for (size_t stride = localBatchSize / 2; stride > 0; stride /= 2) {
+		if (localBatchID < stride) {
+			localBatches[localBatchID] += localBatches[localBatchID + stride];
+		}
+		barrier(CLK_LOCAL_MEM_FENCE);
+	}
+
+	if (localBatchID == 0) {
+		weightGradients[layerID * prevLayerSize * get_num_groups(0) + nodeID * get_num_groups(0) + groupID] = localBatches[0];
 	}
 }
 )CLC";
 
-	gpu.BuildKernel("batchAverage", kernelSource);
+	gpu.BuildKernel("weightGradients", kernelSource);
 
-	cl::Kernel& weightKernel = gpu.kernels["batchAverage"];
+	cl::Kernel& kernel = gpu.kernels["weightGradients"];
 
-	weightKernel.setArg(0, weightGradients);
-	weightKernel.setArg(1, (cl_long) (nodesSize * prevNodesSize));
-	weightKernel.setArg(2, (cl_long) batchSize);
+	size_t localBatchSize = std::min((size_t)256, std::bit_floor(gpu.maxWG));
+	size_t localLayerSize = std::min((size_t)256, std::min(gpu.maxWG / localBatchSize, (size_t)1));
+	size_t localNodeSize = std::min((size_t)256, std::min(gpu.maxWG / localLayerSize, (size_t)1));
 
-	cl::NDRange weightRange(nodesSize * prevNodesSize, (size_t)(batchSize / 2));
-	gpu.queue.enqueueNDRangeKernel(weightKernel, cl::NullRange, weightRange);
+	size_t workGroupSize = localBatchSize * localLayerSize * localNodeSize;
 
-	cl::Kernel& biasKernel = gpu.kernels["batchAverage"];
+	kernel.setArg(0, nodes);
+	kernel.setArg(1, prevDeltas);
+	kernel.setArg(2, weightGradients);
+	kernel.setArg(3, cl::Local(sizeof(double) * workGroupSize));
+	kernel.setArg(4, layerSize);
+	kernel.setArg(5, prevLayerSize);
+	kernel.setArg(6, batchSize);
 
-	biasKernel.setArg(0, biasGradients);
-	biasKernel.setArg(1, (cl_long)nodesSize);
-	biasKernel.setArg(2, (cl_long)batchSize);
-
-	cl::NDRange biasRange(nodesSize, (size_t)(batchSize / 2));
-	gpu.queue.enqueueNDRangeKernel(weightKernel, cl::NullRange, biasRange);
-
+	cl::NDRange global(batchSize, layerSize, prevLayerSize);
+	cl::NDRange local(localBatchSize, localLayerSize, localNodeSize);
+	
+	gpu.queue.enqueueNDRangeKernel(kernel, cl::NullRange, global, local);
 	gpu.queue.finish();
+
+	size_t strideSize = (batchSize - 1) / localBatchSize + 1;
+
+	reduceStrided(
+		gpu,
+		weightGradients,
+		strideSize,
+		layerSize * prevLayerSize
+	);
 }
+
 
 void modifyParameters(
 	GPU& gpu,
@@ -428,7 +384,7 @@ __kernel void modifyParameters(
 	cl::NDRange weightRange(nodesSize * prevNodesSize);
 	gpu.queue.enqueueNDRangeKernel(weightKernel, cl::NullRange, weightRange);
 
-	cl::Kernel& biasKernel = gpu.kernels["batchAverage"];
+	cl::Kernel& biasKernel = gpu.kernels["modifyParameters"];
 
 	biasKernel.setArg(0, biasGradients);
 	biasKernel.setArg(1, biases);
@@ -446,88 +402,102 @@ inline void NetworkBackPropGPU::calculateGradients(
 	size_t batchSize,
 	size_t prevBatchSize
 ) {
-	static std::vector<std::unique_ptr<cl::Buffer>> weightGradientBuffer(size() - 1);
-	static std::vector<std::unique_ptr<cl::Buffer>> biasGradientBuffer(size() - 1);
-	static std::vector<std::unique_ptr<cl::Buffer>> nodeGradientBuffer(size() - 1);
-	
-	if (batchSize != prevBatchSize) {
-		for (size_t i = 0; i < size() - 1; i++) {
-			weightGradientBuffer[i] =
-				std::make_unique<cl::Buffer>(
-					gpu->context,
-					CL_MEM_READ_WRITE,
-					sizeof(double) * batchSize * getStructure(i) * getStructure(i + 1)
-				);
 
-			biasGradientBuffer[i] =
-				std::make_unique<cl::Buffer>(
-					gpu->context,
-					CL_MEM_READ_WRITE,
-					sizeof(double) * batchSize * getStructure(i + 1)
-				);
+	// TODO: Consider double buffers so one can be read while the other is written.
+	cl::Buffer weightGradientBuffer(
+		gpu->context,
+		CL_MEM_READ_WRITE,
+		sizeof(double) * batchSize * maxWeightSize()
+	);
 
-			nodeGradientBuffer[i] =
-				std::make_unique<cl::Buffer>(
-					gpu->context,
-					CL_MEM_READ_WRITE,
-					sizeof(double) * batchSize * getStructure(i + 1)
-				);
-		}
+	cl::Buffer prevDeltas(
+		gpu->context,
+		CL_MEM_READ_WRITE,
+		sizeof(double) * batchSize * largestLayer()
+	);
 
-	}
+	cl::Buffer curDeltas(
+		gpu->context,
+		CL_MEM_READ_WRITE,
+		sizeof(double) * batchSize * largestLayer()
+	);
 
-	inputLayerGradients(
+	outputLayerDeltas(
 		*gpu,
 		expectedBuffer,
-		*nodeGradientBuffer[size() - 2],
 		*layerBuffers[size() - 1],
-		*layerBuffers[size() - 2],
-		*weightGradientBuffer[size() - 2],
-		*biasGradientBuffer[size() - 2],
-		getStructure(size() - 2),
+		curDeltas,
 		getStructure(size() - 1),
 		batchSize
 	);
 
-	for (size_t i = size() - 2; i > 0; i++) {
-		size_t j = i - 1; // For indexing weights and gradients since they have less elements
-
-		layerGradients(
+	for (size_t i = size() - 2; i > 1; i++) {
+		
+		layerDeltas(
 			*gpu,
-			*nodeGradientBuffer[j + 1],
-			*nodeGradientBuffer[j],
-			*layerBuffers[i + 1],
+			*WeightBuffers[i],
+			prevDeltas,
 			*layerBuffers[i],
-			*layerBuffers[i - 1],
-			*WeightBuffers[j + 1],
-			*weightGradientBuffer[j],
-			*biasGradientBuffer[j],
-			getStructure(i - 1),
-			getStructure(i),
+			curDeltas,
 			getStructure(i + 1),
+			getStructure(i),
 			batchSize
 		);
 
-		averageGradients(
+		weightGradients(
 			*gpu,
-			*weightGradientBuffer[j],
-			*biasGradientBuffer[j],
+			*layerBuffers[i],
+			prevDeltas,
+			weightGradientBuffer,
 			getStructure(i),
-			getStructure(i - 1),
+			getStructure(i+1),
 			batchSize
 		);
+
+		reduceStridedBatchMajor(*gpu, prevDeltas, batchSize, getStructure(i+1));
+
+		cl::Buffer& biasGradientBuffer = prevDeltas;
 
 		modifyParameters(
 			*gpu,
-			*weightGradientBuffer[j],
-			*biasGradientBuffer[j],
-			*WeightBuffers[j],
-			*BiasBuffers[j],
+			weightGradientBuffer,
+			biasGradientBuffer,
+			*WeightBuffers[i],
+			*BiasBuffers[i],
 			learningRate,
 			getStructure(i),
-			getStructure(i - 1)
+			getStructure(i + 1)
 		);
+
+		std::swap(prevDeltas, curDeltas);
 	}
+
+
+	weightGradients(
+		*gpu,
+		*layerBuffers[0],
+		prevDeltas,
+		weightGradientBuffer,
+		getStructure(0),
+		getStructure(1),
+		batchSize
+	);
+
+	reduceStridedBatchMajor(*gpu, prevDeltas, batchSize, getStructure(1));
+
+	cl::Buffer& biasGradientBuffer = prevDeltas;
+
+	modifyParameters(
+		*gpu,
+		weightGradientBuffer,
+		biasGradientBuffer,
+		*WeightBuffers[0],
+		*BiasBuffers[0],
+		learningRate,
+		getStructure(0),
+		getStructure(1)
+	);
+
 }
 
 // TODO: Split batches if gradients will be too large
@@ -586,8 +556,45 @@ TestResult NetworkBackPropGPU::TrainSet(const std::vector<Test>& testSet, double
 		previousBatchSize
 	);
 
+	cl::Buffer& outputBuffer = *layerBuffers[size() - 1];
 
+	double cost = getCost(*gpu, outputBuffer, *expectedBuffer, getStructure(size()-1), batchSize);
+
+
+	// TODO: Actually calculate the acuracy
+	return { cost, 0 };
 }
 
+void NetworkBackPropGPU::loadBuffers() {
+	for (size_t i = 0; i < parameters.size; i++) {
+		// Gets the pointer to the first element in the weights for this layer.
+		double* layerWeights = parameters.weights[i][0].data();
+		double* layerBiases = parameters.biases[i].data();
+
+		gpu->queue.enqueueReadBuffer(*WeightBuffers[i], CL_TRUE, 0, getStructure(i) * getStructure(i+1), layerWeights);
+		gpu->queue.enqueueReadBuffer(*BiasBuffers[i], CL_TRUE, 0, getStructure(i+1), layerBiases);
+
+	}
+}
+
+void NetworkBackPropGPU::saveBuffers() {
+	// TODO: Write to the buffers instead of clearing
+	WeightBuffers.clear();
+	BiasBuffers.clear();
+	WeightBuffers.reserve(size());
+	BiasBuffers.reserve(size());
+
+	for (size_t i = 0; i < parameters.size; i++) {
+		// TODO: Just use weightsData
+		std::vector<double> layerWeights = flattenVector(parameters.weights[i]);
+		std::vector<double> layerBiases(parameters.biases[i].begin(), parameters.biases[i].end());
+
+		cl::Buffer weightBuffer(gpu->context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(double) * layerWeights.size(), layerWeights.data());
+		cl::Buffer biasBuffer(gpu->context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(double) * layerBiases.size(), layerBiases.data());
+
+		WeightBuffers.push_back(std::make_unique<cl::Buffer>(weightBuffer));
+		BiasBuffers.push_back(std::make_unique<cl::Buffer>(biasBuffer));
+	}
+}
 
 }

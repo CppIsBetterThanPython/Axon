@@ -31,3 +31,6 @@ build/
 # Ignore my file to test iterations seperately
 Iterations/
 Test/
+
+# Ignore language server compile comands
+compile_commands.json

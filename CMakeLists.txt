@@ -27,3 +27,5 @@ enable_testing()
 # Include sub-projects.
 add_subdirectory ("NeuralNetLib")
 add_subdirectory ("NetworkTrain")
+
+add_subdirectory ("NeuralNetLib/sandbox")

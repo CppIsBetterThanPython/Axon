@@ -6,6 +6,7 @@
 
 // TODO: REMOVE THIS
 #include "NetworkBackPropCPU.hpp"
+#include "NetworkBackPropGPU.hpp"
 
 //class NetworkBackPropGPU;
 //class NetworkBackPropCPU;
@@ -18,7 +19,7 @@ namespace axon {
         //std::optional<std::weak_ptr<NetworkBackPropCPU>> backPropCPUinterface;
         // TODO: MAKE THIS A WEAK PTR
         std::optional<NetworkBackPropCPU*> backPropCPUinterface;
-        //std::optional<NetworkBackPropGPU*> backPropGPUinterface;
+        std::optional<NetworkBackPropGPU*> backPropGPUinterface;
 
         NetworkBackProp(const Parameters& parameters, const Interface interface_ = Interface::CPU, std::optional<size_t> seed = defaultSeed);
     public:
