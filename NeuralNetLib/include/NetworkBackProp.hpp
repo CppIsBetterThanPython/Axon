@@ -10,6 +10,15 @@
 //class NetworkBackPropGPU;
 //class NetworkBackPropCPU;
 
+/**
+ * @file NetworkBackProp.hpp
+ *
+ * @brief Header for inference and training of a fully connected neural network.
+ *
+ * @details This includes methods for training. If you are only doing inference see @ref Network.hpp.
+ *
+ */
+
 namespace axon {
 
     class NetworkBackProp :

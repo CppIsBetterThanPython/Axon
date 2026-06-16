@@ -9,6 +9,15 @@
 #include "NetworkBase.hpp"
 #include "NetworkError.hpp"
 
+/**
+ * @file Network.hpp
+ *
+ * @brief The header to include for fully connected network.
+ *
+ * @details This header provides everything needed to do inference for an existing fully connected network model. For traing see @ref NetworkBackProp.hpp.
+ *
+ */
+
 namespace axon {
 
     // Forward declaration of GPU interface class that is managed internally.
@@ -31,7 +40,7 @@ namespace axon {
         enum class Initialisation : uint8_t { Xavier };
     protected:
         std::mt19937 randomEngine;
-        // Possibly make this const
+        // TODO: Possibly make this const
         size_t seed;
 
         Parameters parameters;
@@ -57,6 +66,13 @@ namespace axon {
 
     public:
         static std::unique_ptr<Network> createNetwork(const Parameters& parameters, Interface interface_ = Interface::GPU, std::optional<size_t> seed = defaultSeed);
+	/**
+	 * @brief The standard way to construct a Network
+	 *
+	 * @param Structure A vector containing the amount of nodes in each layer.
+	 * @param interface_ The backend compute interface.
+	 * @param seed Deterministic pseudo-random seed for parameter initialisation.
+	 */
         static std::unique_ptr<Network> createNetwork(const std::vector<size_t>& Structure, Interface interface_ = Interface::GPU, std::optional<size_t> seed = defaultSeed);
         //static std::unique_ptr<Network> createNetwork(const std::filesystem::path& filename, Interface interface_ = Interface::GPU, std::optional<size_t> seed = defaultSeed);
 
@@ -80,7 +96,7 @@ namespace axon {
 	 *
 	 * @details This only stores the values, it does not compute anything. It you call it again before calculating it will fail and keep the previous input. This version takes multiple inputs to compute in parallel.
 	 *
-	 * @param 
+	 * @param input A vector of seperate inputs into the network to be processed concurrently.
 	 */
         void input(const std::vector<std::vector<double>>& input);
 	/**
@@ -118,5 +134,9 @@ namespace axon {
     std::error_code saveNetwork(const Network& network, const std::filesystem::path& filePath);
     std::unique_ptr<Network> loadNetwork(const std::filesystem::path& filePath, std::error_code& ec);
 
+    // TODO: Implement a FileVersion struct
+    /**
+     * @brief Gets the string for the current version.
+     */
     std::string getFileVersion();
 }

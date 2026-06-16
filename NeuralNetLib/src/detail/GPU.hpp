@@ -70,7 +70,7 @@ public:
 
 		program.build();
 
-		cl::Kernel kernel(program, name);
+		cl::Kernel kernel(program, name.c_str());
 
 		kernels[name] = kernel;
 	}
