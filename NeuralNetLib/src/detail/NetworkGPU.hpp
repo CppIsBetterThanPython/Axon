@@ -39,8 +39,7 @@ namespace axon {
         [[nodiscard]] std::vector<double> getAnswerVector() const override;
         [[nodiscard]] std::vector<std::vector<double>> getAnswerVectors() const override;
 
-        void loadBuffers();
-        void saveBuffers();
+        virtual void saveBuffers();
 
         inline size_t largestLayer() const {
             size_t curLargestLayer = 0;
@@ -60,5 +59,16 @@ namespace axon {
             return curLargestLayer;
         }
     };
+
+    void calculateLayer(
+        GPU& gpu,
+        const cl::Buffer& prevNodes,
+        const cl::Buffer& weights,
+        const cl::Buffer& biases,
+        cl::Buffer& nodes,
+        size_t prevNodesSize,
+        size_t nodesSize,
+        size_t batchSize
+    );
 
 }

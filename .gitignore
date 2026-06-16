@@ -36,3 +36,6 @@ Test/
 
 docs/html/
 docs/latex/
+
+# Ignore language server compile comands
+compile_commands.json

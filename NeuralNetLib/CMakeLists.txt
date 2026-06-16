@@ -4,7 +4,6 @@ project(NeuralNetworkLib LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(OPENCL_ROOT "D:/Program Files/vcpkg/packages/opencl_x64-windows")
 
 file(GLOB_RECURSE SOURCES "src/*.cpp")
 add_library(nnlib STATIC ${SOURCES})
@@ -16,11 +15,10 @@ PUBLIC
     $<INSTALL_INTERFACE:include>
 )
 
-target_include_directories(nnlib PRIVATE "${OPENCL_ROOT}/include")
+find_package(OpenCL REQUIRED)
+target_link_libraries(nnlib OpenCL::OpenCL)
 
 # Install targets
-
-target_link_libraries(nnlib PRIVATE "${OPENCL_ROOT}/lib/OpenCL.lib")
 
 install(TARGETS nnlib
         EXPORT nnlibTargets
@@ -61,6 +59,9 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(googlebenchmark)
 
+# Misc Benchmarks
+#################################################
+
 add_executable(nnbenchmark "benchmark/benchmark.cpp")
 
 target_link_libraries(nnbenchmark
@@ -69,11 +70,25 @@ PRIVATE
     benchmark::benchmark
 )
 
-add_executable(nntest "tests/test.cpp")
+# Experimental Benchmarks
+#################################################
 
-target_compile_options(nntest PRIVATE
-    $<$<CONFIG:Debug>:/Zi /Od>
+add_executable(nnexperimental "benchmark/experimental.cpp")
+
+target_link_libraries(nnexperimental
+PRIVATE
+    nnlib
+    benchmark::benchmark
 )
+
+# target_compile_options(nntest PRIVATE
+#     $<$<CONFIG:Debug>:/Zi /Od>
+# )
+
+# Misc Tests
+#################################################
+
+add_executable(nntest "tests/test.cpp")
 
 target_link_libraries(
     nntest
@@ -85,11 +100,10 @@ PRIVATE
 include(GoogleTest)
 gtest_discover_tests(nntest)
 
-add_executable(test_utils "tests/testUtils.cpp")
+# utilities tests
+#################################################
 
-target_compile_options(test_utils PRIVATE
-    $<$<CONFIG:Debug>:/Zi /Od>
-)
+add_executable(test_utils "tests/testUtils.cpp")
 
 target_link_libraries(
     test_utils
@@ -99,3 +113,17 @@ PRIVATE
 )
 
 gtest_discover_tests(test_utils)
+
+# GPU utilities tests
+#################################################
+
+add_executable(test_gpu_utils "tests/testGpuUtils.cpp")
+
+target_link_libraries(
+    test_gpu_utils
+PRIVATE
+    nnlib
+    GTest::gtest_main
+)
+
+gtest_discover_tests(test_gpu_utils)

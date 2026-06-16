@@ -20,7 +20,7 @@ double NetworkBackPropCPU::getCost(vector<double> expectedAnswers) {
 }
 
 // Input the gradients of the next layers nodes, the index of the node you are getting the gradient of, and the index of the current layer
-double NetworkBackPropCPU::getNodeGradient(const vector<double>& nextLayerNodeGradients, size_t nodePos, size_t currentLayerPos) {
+inline double NetworkBackPropCPU::getNodeGradient(const vector<double>& nextLayerNodeGradients, size_t nodePos, size_t currentLayerPos) {
     double nodeGradient = 0.0;
 
     //  nL-1
@@ -52,14 +52,14 @@ double NetworkBackPropCPU::getNodeGradient(const vector<double>& nextLayerNodeGr
 }
 
 // Input the gradients of the next layers nodes, the index of the node you are getting the gradient of, and the index of the current layer
-double NetworkBackPropCPU::getWeightGradient(double nextLayerNodeGradient, size_t layerPos, size_t nodePos, size_t weightPos) {
+inline double NetworkBackPropCPU::getWeightGradient(double nextLayerNodeGradient, size_t layerPos, size_t nodePos, size_t weightPos) {
 
     // sigma(z)
     double data = nodeData[layerPos][nodePos];
 
     //The data that the weight is multiplied by is part of the derivative
     double currentLayerNodeData = nodeData[layerPos - 1][weightPos];
-
+    
     // daj
     // ---
     // dwjk
@@ -73,7 +73,7 @@ double NetworkBackPropCPU::getWeightGradient(double nextLayerNodeGradient, size_
     return gradient;
 }
 
-double NetworkBackPropCPU::getBiasGradient(double nextLayerNodeGradient, size_t layerPos, size_t nodePos) {
+inline double NetworkBackPropCPU::getBiasGradient(double nextLayerNodeGradient, size_t layerPos, size_t nodePos) {
 
     double data = nodeData[layerPos][nodePos];
 
@@ -105,6 +105,7 @@ Parameters NetworkBackPropCPU::differentiate(vector<double> expectedAnswers) {
         nodeGradientVector.back().push_back(nodeGradient);
     }
 
+    // TODO: avoid calculating input layer gradients when possible (also do this for GPU)
     // For the amount of hidden layers
     for (size_t i = size() - 2; i > 0; i--) {
         //for the amount of nodes in the current layer

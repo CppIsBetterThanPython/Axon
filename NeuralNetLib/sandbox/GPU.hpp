@@ -5,7 +5,7 @@
 #define OPEN_CL_CPU_DEBUG
 
 #include <CL/opencl.hpp>
-#include <pch.h>
+#include <iostream>
 
 inline bool initOpenCL() {
 	std::vector<cl::Platform> platforms;
@@ -88,7 +88,7 @@ public:
 		if (err != CL_SUCCESS) {
 			std::string log = program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device);
 
-			std::cout << log << std::endl;
+			std::cout << log;
 		}
 
 		cl::Kernel kernel(program, name.c_str());

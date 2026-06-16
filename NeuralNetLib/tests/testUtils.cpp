@@ -61,3 +61,9 @@ TEST(GetLargestIDTests, Chars) {
 
 	EXPECT_EQ(output, expected);
 }
+
+TEST(Misc, TypeName) {
+
+	EXPECT_EQ(typeName<float>(), "f32");
+	EXPECT_EQ(typeName<double>(), "f64");
+}
