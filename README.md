@@ -1,4 +1,5 @@
 # Axon
+[![Documentation](https://img.shields.io/badge/api-reference-blue.svg)](https://cppisbetterthanpython.github.io/Axon/)
 
 Axon is a cross-platform, open source machine learning library written in C++.
 Currently it only supports the inference and training of fully connected neural networks with plans for implementing things like CNNs, Transformers, and reinforcement learning agents later on. The only API is also in `C++` with possible plans to implement `js` or `python`APIs.
